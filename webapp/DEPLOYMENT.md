@@ -92,7 +92,7 @@ You can also point the build at the app folder instead (**spotube-web → Settin
 - Deploy command: `npx opennextjs-cloudflare deploy`
 - Non-production branch deploy command (preview builds for pull requests): `npx opennextjs-cloudflare upload`
 
-Either way the Worker name must match `"name"` in `wrangler.jsonc` (`spotube-web`). Node.js 22 is selected by
+Either way the Worker name must match `"name"` in `wrangler.jsonc` (`spotube-web`). Node.js 22.16.0 is selected by
 `.node-version`. Provider secrets are only needed at runtime (step 3), not as build variables.
 
 You can also deploy from GitHub Actions by adding a job that runs `npm ci && npm run cf:deploy` in `webapp/` with a `CLOUDFLARE_API_TOKEN`
