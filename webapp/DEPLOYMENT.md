@@ -79,18 +79,23 @@ Remember to update the Spotify redirect URI and `ALLOWED_ORIGINS` to the new dom
 
 ## 6. Continuous deployment (optional)
 
-Either connect the repository in **Workers & Pages → Create → Import a repository** (or, for an existing Worker,
-**spotube-web → Settings → Build**) with:
+Connect the repository in **Workers & Pages → Create → Import a repository** and keep the default settings (root
+directory `/`, no build command, deploy command `npx wrangler deploy`, non-production deploy command
+`npx wrangler versions upload`). The `wrangler.jsonc` at the repository root builds `webapp/` and deploys it; without that
+file Wrangler would detect the Flutter `web/` folder as a static site and deploy it instead. Keep the root `wrangler.jsonc`
+and `webapp/wrangler.jsonc` in sync.
 
-- Root directory (path): `webapp`. The repository root is the Flutter app, so builds from `/` fail straight away.
+You can also point the build at the app folder instead (**spotube-web → Settings → Build**):
+
+- Root directory (path): `webapp`
 - Build command: `npx opennextjs-cloudflare build`
 - Deploy command: `npx opennextjs-cloudflare deploy`
 - Non-production branch deploy command (preview builds for pull requests): `npx opennextjs-cloudflare upload`
-- The Worker name must match `"name"` in `wrangler.jsonc` (`spotube-web`).
 
-Node.js 22 is selected by `webapp/.node-version`. Provider secrets are only needed at runtime (step 3), not as build variables.
+Either way the Worker name must match `"name"` in `wrangler.jsonc` (`spotube-web`). Node.js 22 is selected by
+`.node-version`. Provider secrets are only needed at runtime (step 3), not as build variables.
 
-or deploy from GitHub Actions by adding a job that runs `npm ci && npm run cf:deploy` in `webapp/` with a `CLOUDFLARE_API_TOKEN`
+You can also deploy from GitHub Actions by adding a job that runs `npm ci && npm run cf:deploy` in `webapp/` with a `CLOUDFLARE_API_TOKEN`
 (Workers Scripts: Edit) and `CLOUDFLARE_ACCOUNT_ID` secret. The included `webapp-ci.yml` workflow already builds and tests every
 pull request that touches `webapp/`.
 

@@ -1,0 +1,28 @@
+// Cloudflare deploy config for Spotube Web when Workers Builds runs from the
+// repository root. Without it, Wrangler auto-detects the Flutter `web/` folder
+// as a static site and deploys that instead of the web app.
+//
+// It builds `webapp/` and deploys the same Worker as `webapp/wrangler.jsonc`.
+// Keep the two files in sync (only the paths and `build` differ).
+{
+  "$schema": "webapp/node_modules/wrangler/config-schema.json",
+  "name": "spotube-web",
+  "main": "webapp/.open-next/worker.js",
+  "compatibility_date": "2026-09-01",
+  "compatibility_flags": ["nodejs_compat", "global_fetch_strictly_public"],
+  "assets": {
+    "directory": "webapp/.open-next/assets",
+    "binding": "ASSETS"
+  },
+  "services": [
+    { "binding": "WORKER_SELF_REFERENCE", "service": "spotube-web" }
+  ],
+  "observability": { "enabled": false },
+  "vars": {
+    "YOUTUBE_REGION_CODE": "US"
+  },
+  "build": {
+    "cwd": "webapp",
+    "command": "npm ci && npx opennextjs-cloudflare build"
+  }
+}

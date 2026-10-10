@@ -84,3 +84,6 @@ tm.json
 
 android/build
 android/app/.cxx
+
+# Wrangler (Spotube Web deploys from the repository root)
+/.wrangler
