@@ -1,0 +1,12 @@
+node_modules
+.next
+.open-next
+.wrangler
+out
+.env
+.env.local
+.dev.vars
+*.tsbuildinfo
+next-env.d.ts
+test-results
+playwright-report

@@ -24,6 +24,13 @@ Btw it's not just another Electron app 😉
 
 </div>
 
+## 🌐 Spotube Web (browser version)
+
+This fork also contains a browser version of Spotube in [`webapp/`](webapp/): a Next.js app that searches YouTube, Spotify,
+SoundCloud and Apple Music through their official APIs, plays music through their official players, keeps your library in
+IndexedDB and deploys to Cloudflare Workers. See [`webapp/README.md`](webapp/README.md) and
+[`webapp/DEPLOYMENT.md`](webapp/DEPLOYMENT.md). The Flutter app below is unchanged.
+
 ## 🌃 Features
 
 - 🧩 Plugin powered, supports any platform or custom music service through plugins.

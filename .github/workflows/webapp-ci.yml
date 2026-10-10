@@ -1,0 +1,46 @@
+name: Web app
+
+on:
+  pull_request:
+    paths:
+      - "webapp/**"
+      - ".github/workflows/webapp-ci.yml"
+  push:
+    branches: [master]
+    paths:
+      - "webapp/**"
+
+defaults:
+  run:
+    working-directory: webapp
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+          cache-dependency-path: webapp/package-lock.json
+      - run: npm ci
+      - name: Type check
+        run: npm run lint
+      - name: Unit tests
+        run: npm test
+      - name: Production build
+        run: npm run build
+      - name: Install Playwright Chromium
+        run: npx playwright install --with-deps chromium
+      - name: Browser tests (desktop + mobile)
+        run: npm run test:e2e
+      - name: Cloudflare Worker build
+        run: npm run cf:build
+      - uses: actions/upload-artifact@v4
+        if: failure()
+        with:
+          name: playwright-results
+          path: webapp/test-results
+          retention-days: 7
