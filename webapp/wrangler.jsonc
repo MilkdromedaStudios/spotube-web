@@ -1,0 +1,20 @@
+{
+  "$schema": "node_modules/wrangler/config-schema.json",
+  "name": "spotube-web",
+  "main": ".open-next/worker.js",
+  "compatibility_date": "2026-09-01",
+  "compatibility_flags": ["nodejs_compat", "global_fetch_strictly_public"],
+  "assets": {
+    "directory": ".open-next/assets",
+    "binding": "ASSETS"
+  },
+  "services": [
+    { "binding": "WORKER_SELF_REFERENCE", "service": "spotube-web" }
+  ],
+  "observability": { "enabled": false },
+  // Non-secret configuration. Secrets (API keys, client secrets, SESSION_SECRET,
+  // APPLE_MUSIC_PRIVATE_KEY) must be added with `wrangler secret put`.
+  "vars": {
+    "YOUTUBE_REGION_CODE": "US"
+  }
+}
