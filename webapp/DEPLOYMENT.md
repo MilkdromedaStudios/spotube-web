@@ -79,11 +79,16 @@ Remember to update the Spotify redirect URI and `ALLOWED_ORIGINS` to the new dom
 
 ## 6. Continuous deployment (optional)
 
-Either connect the repository in **Workers & Pages → Create → Import a repository** with:
+Either connect the repository in **Workers & Pages → Create → Import a repository** (or, for an existing Worker,
+**spotube-web → Settings → Build**) with:
 
-- Root directory: `webapp`
+- Root directory (path): `webapp`. The repository root is the Flutter app, so builds from `/` fail straight away.
 - Build command: `npx opennextjs-cloudflare build`
 - Deploy command: `npx opennextjs-cloudflare deploy`
+- Non-production branch deploy command (preview builds for pull requests): `npx opennextjs-cloudflare upload`
+- The Worker name must match `"name"` in `wrangler.jsonc` (`spotube-web`).
+
+Node.js 22 is selected by `webapp/.node-version`. Provider secrets are only needed at runtime (step 3), not as build variables.
 
 or deploy from GitHub Actions by adding a job that runs `npm ci && npm run cf:deploy` in `webapp/` with a `CLOUDFLARE_API_TOKEN`
 (Workers Scripts: Edit) and `CLOUDFLARE_ACCOUNT_ID` secret. The included `webapp-ci.yml` workflow already builds and tests every
