@@ -71,7 +71,7 @@ export const configuredFor = (p: ProviderId, c: ServerConfig) => c[p];
 export const CONFIG_HINT: Record<ProviderId, string> = {
   youtube: "Set YOUTUBE_API_KEY on the server to enable YouTube search. Pasted YouTube links play without it.",
   spotify:
-    "Set SPOTIFY_CLIENT_ID and SPOTIFY_CLIENT_SECRET on the server to enable Spotify search. Without them, paste a Spotify song, album, playlist or artist link: it plays in Spotify's own player and can be saved to your library.",
+    "Spotify catalogue search uses the public wolfXspotify metadata service; no API key is needed. If it is temporarily unavailable, try again later.",
   soundcloud:
     "Set SOUNDCLOUD_CLIENT_ID and SOUNDCLOUD_CLIENT_SECRET on the server to enable SoundCloud search. Without them, paste a SoundCloud track or playlist link: it plays in SoundCloud's own player.",
   apple: "Set APPLE_MUSIC_TEAM_ID, APPLE_MUSIC_KEY_ID and APPLE_MUSIC_PRIVATE_KEY on the server to enable Apple Music.",
