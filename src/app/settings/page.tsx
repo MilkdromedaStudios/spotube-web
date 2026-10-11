@@ -518,6 +518,11 @@ function SettingsInner() {
       <Storage />
 
       <Card id="about" icon={<Keyboard />} title="About">
+        <Row label="MP3 metadata lab" description="Experimental: match Spotify song details to your own MP3 and export a tagged copy.">
+          <Link href="/spotfetch-prototype" className="inline-flex items-center gap-1 rounded-full border border-line px-3 py-2 text-sm font-medium hover:bg-surface-2">
+            Open prototype <ExternalLink className="size-3" />
+          </Link>
+        </Row>
         <Row label="Keyboard shortcuts" description="Press ? anywhere to see them.">
           <Button size="sm" variant="outline" onClick={() => useUi.setState({ shortcutsOpen: true })}>
             Show shortcuts
