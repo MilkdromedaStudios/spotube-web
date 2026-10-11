@@ -52,6 +52,7 @@ const bytes = (n: number) =>
 function SpotifyAccount() {
   const spotifyRedirectUri = useServerConfig((s) => s.spotifyRedirectUri);
   const spotifyRedirectError = useServerConfig((s) => s.spotifyRedirectError);
+  const spotifyClientId = useServerConfig((s) => s.spotifyClientId);
   const cfg = useServerConfig((s) => s.providers);
   const auth = useSpotifyAuth();
   const settings = useSettings();
@@ -96,7 +97,11 @@ function SpotifyAccount() {
         </select>
       </Row>
       <div className="mt-3 rounded-xl border border-line bg-surface-2 p-4">
-        <p className="text-sm font-semibold">Spotify OAuth callback URL</p>
+        <p className="text-sm font-semibold">Spotify Connect diagnostics</p>
+        <p className="mt-2 text-xs text-muted">Client ID used by this deployment (public, not your Client Secret):</p>
+        <code className="my-2 block break-all rounded-lg bg-surface px-3 py-2 text-xs">{spotifyClientId ?? "Not configured"}</code>
+        <p className="text-xs text-muted">Compare this Client ID with the app in your Spotify Developer Dashboard. A different ID will cause redirect_uri errors even when that other app has the callback registered.</p>
+        <p className="mt-3 text-sm font-semibold">Spotify OAuth callback URL</p>
         {spotifyRedirectError && <Notice tone="warn">{spotifyRedirectError}</Notice>}
         {spotifyRedirectUri && (
           <div className="my-2 flex flex-wrap items-center gap-2">
