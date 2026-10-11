@@ -50,6 +50,8 @@ const bytes = (n: number) =>
   n < 1024 ? `${n} B` : n < 1024 ** 2 ? `${(n / 1024).toFixed(1)} KB` : n < 1024 ** 3 ? `${(n / 1024 ** 2).toFixed(1)} MB` : `${(n / 1024 ** 3).toFixed(2)} GB`;
 
 function SpotifyAccount() {
+  const spotifyRedirectUri = useServerConfig((s) => s.spotifyRedirectUri);
+  const spotifyRedirectError = useServerConfig((s) => s.spotifyRedirectError);
   const cfg = useServerConfig((s) => s.providers);
   const auth = useSpotifyAuth();
   const settings = useSettings();
