@@ -33,8 +33,17 @@ let embedApi: Promise<EmbedApi> | null = null;
 function loadEmbedApi() {
   if (embedApi) return embedApi;
   embedApi = new Promise<EmbedApi>((resolve, reject) => {
-    window.onSpotifyIframeApiReady = (api) => resolve(api);
-    loadScript("https://open.spotify.com/embed/iframe-api/v1").catch(reject);
+    // Script load can succeed even when an extension blocks Spotify's readiness
+    // callback; reject instead of leaving the player on "Loading" forever.
+    const timeout = setTimeout(() => reject(new Error("Spotify embed did not initialize. Try disabling content blockers for this site.")), 20000);
+    window.onSpotifyIframeApiReady = (api) => {
+      clearTimeout(timeout);
+      resolve(api);
+    };
+    loadScript("https://open.spotify.com/embed/iframe-api/v1").catch((error) => {
+      clearTimeout(timeout);
+      reject(error);
+    });
   });
   embedApi.catch(() => (embedApi = null));
   return embedApi;
@@ -72,9 +81,18 @@ export class SpotifyEmbedAdapter implements PlaybackAdapter {
     host.innerHTML = "";
     const mount = document.createElement("div");
     host.appendChild(mount);
-    this.controller = await new Promise<EmbedController>((resolve) =>
-      api.createController(mount, { uri, width: "100%", height }, (c) => resolve(c)),
-    );
+    this.controller = await new Promise<EmbedController>((resolve, reject) => {
+      const timer = setTimeout(() => reject(new Error("Spotify did not create its embedded player. Check browser privacy settings.")), 20000);
+      try {
+        api.createController(mount, { uri, width: "100%", height }, (controller) => {
+          clearTimeout(timer);
+          resolve(controller);
+        });
+      } catch (error) {
+        clearTimeout(timer);
+        reject(error);
+      }
+    });
     this.controller.addListener("ready", () => {
       if (this.wantPlay) this.controller?.play();
     });
@@ -114,12 +132,15 @@ export class SpotifyEmbedAdapter implements PlaybackAdapter {
     const created = await this.ensure(uri);
     if (!created) this.controller!.loadUri(uri);
     if (opts.autoplay) {
-      this.controller!.play();
+      // Newly created embeds must finish initializing before Spotify accepts
+      // play(); the "ready" listener above will start it. Existing embeds can
+      // be started immediately after loading the next URI.
+      if (!created) this.controller!.play();
       this.clearNudge();
       // Browsers may block the embed from starting without a click inside it.
       this.nudge = setTimeout(() => {
         if (!this.playing)
-          this.events.onError({ message: "Press play in the Spotify player to start this track.", fatal: false, notice: true });
+          this.events.onError({ message: "Spotify blocked automatic playback. Press Play inside the Spotify player, or open the song on Spotify. Free embeds may only play previews.", fatal: false, notice: true });
       }, 5000);
     } else this.events.onState({ status: "paused", positionMs: 0 });
   }
