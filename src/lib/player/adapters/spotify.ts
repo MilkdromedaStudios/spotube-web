@@ -35,7 +35,7 @@ function loadEmbedApi() {
   embedApi = new Promise<EmbedApi>((resolve, reject) => {
     // Script load can succeed even when an extension blocks Spotify's readiness
     // callback; reject instead of leaving the player on "Loading" forever.
-    const timeout = setTimeout(() => reject(new Error("Spotify embed did not initialize. Try disabling content blockers for this site.")), 20000);
+    const timeout = setTimeout(() => reject(new Error("Spotify embed did not initialize. Switching to the standard player.")), 8000);
     window.onSpotifyIframeApiReady = (api) => {
       clearTimeout(timeout);
       resolve(api);
@@ -119,7 +119,7 @@ export class SpotifyEmbedAdapter implements PlaybackAdapter {
     const mount = document.createElement("div");
     host.appendChild(mount);
     this.controller = await new Promise<EmbedController>((resolve, reject) => {
-      const timer = setTimeout(() => reject(new Error("Spotify did not create its embedded player. Check browser privacy settings.")), 20000);
+      const timer = setTimeout(() => reject(new Error("Spotify iframe API did not create a player. Switching to the standard player.")), 8000);
       try {
         api.createController(mount, { uri, width: "100%", height }, (controller) => {
           clearTimeout(timer);
