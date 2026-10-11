@@ -10,6 +10,7 @@ export type CollectionKind = "album" | "playlist" | "artist";
 export function collectionKind(t: Pick<Track, "provider" | "playbackRef">): CollectionKind | null {
   const ref = t.playbackRef ?? "";
   if (t.provider === "spotify") return (/^spotify:(album|playlist|artist):/.exec(ref)?.[1] as CollectionKind) ?? null;
+  if (t.provider === "youtube" && /^playlist:[A-Za-z0-9_-]+$/.test(ref)) return "playlist";
   if (t.provider === "soundcloud" && /^https:\/\/api\.soundcloud\.com\/playlists\/\d+$/.test(ref)) return "playlist";
   return null;
 }

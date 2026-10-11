@@ -7,6 +7,7 @@ import Link from "next/link";
 import { useRouter, useSearchParams } from "next/navigation";
 import { Suspense, useRef, useState } from "react";
 import { AlbumCard, ArtistCard, CardGrid, MediaCard } from "@/components/Cards";
+import { LinkPlayer } from "@/components/LinkPlayer";
 import { Page } from "@/components/Page";
 import { useCreatePlaylist } from "@/components/shell/Sidebar";
 import { TrackList } from "@/components/TrackList";
@@ -237,6 +238,9 @@ function LibraryInner() {
         </div>
       }
     >
+      <div className="mb-4">
+        <LinkPlayer />
+      </div>
       <div className="scrollbar-thin -mx-1 flex gap-2 overflow-x-auto px-1" role="tablist">
         {TABS.map(({ id, label, icon: Icon }) => (
           <button

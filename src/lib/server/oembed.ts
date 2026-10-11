@@ -40,6 +40,23 @@ export async function resolveLink(link: ParsedLink): Promise<Resolved> {
   const configured = providersConfigured();
 
   if (link.provider === "youtube") {
+    if (link.kind === "playlist" && !configured.youtube) {
+      // Without an API key the whole playlist plays in YouTube's own player.
+      const o = await oembed("https://www.youtube.com/oembed", link.url);
+      return {
+        kind: "track",
+        track: {
+          key: `youtube:playlist:${link.id}`,
+          provider: "youtube",
+          id: `playlist:${link.id}`,
+          title: decodeEntities(o.title ?? "YouTube playlist"),
+          artists: [{ name: (o.author_name ?? "YouTube").replace(/ - Topic$/, "") }],
+          artwork: o.thumbnail_url,
+          url: link.url,
+          playbackRef: `playlist:${link.id}`,
+        },
+      };
+    }
     if (link.kind !== "track") return { kind: link.kind, provider: "youtube", id: link.id };
     if (configured.youtube) {
       const [track] = await videosById([link.id]);

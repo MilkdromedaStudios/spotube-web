@@ -91,7 +91,27 @@ export default function ImportPlaylistsPage() {
         continue;
       }
       if (!ready.has(parsed.provider)) {
-        failures.push(PROVIDER_LABELS[parsed.provider] + " needs to be enabled and configured in Settings.");
+        // Without the provider's API the whole playlist becomes one item that plays in the provider's own player.
+        try {
+          const resolved = await resolveLink(parsed.url);
+          if (resolved.kind !== "track") throw new Error(PROVIDER_LABELS[parsed.provider] + " needs to be enabled and configured in Settings.");
+          const key = parsed.provider + ":" + parsed.id;
+          if (visited.has(key)) continue;
+          visited.add(key);
+          loaded.push({
+            key,
+            provider: parsed.provider,
+            id: parsed.id,
+            url: parsed.url,
+            name: resolved.track.title,
+            artwork: resolved.track.artwork,
+            tracks: [resolved.track],
+            selected: [resolved.track.key],
+            include: true,
+          });
+        } catch (error) {
+          failures.push(PROVIDER_LABELS[parsed.provider] + ": " + ((error as Error).message || "Could not load playlist"));
+        }
         continue;
       }
       try {

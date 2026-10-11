@@ -1,6 +1,7 @@
 "use client";
 
 import { hostElement, loadScript, type AdapterEvents, type LoadOptions, type PlaybackAdapter } from "./types";
+import { collectionKind } from "@/lib/collections";
 import { getSettings } from "@/lib/settings";
 import type { Track } from "@/lib/types";
 
@@ -8,6 +9,10 @@ import type { Track } from "@/lib/types";
 interface YTPlayer {
   loadVideoById(o: { videoId: string; startSeconds?: number }): void;
   cueVideoById(o: { videoId: string; startSeconds?: number }): void;
+  loadPlaylist(o: { list: string; listType: "playlist"; index?: number; startSeconds?: number }): void;
+  cuePlaylist(o: { list: string; listType: "playlist"; index?: number; startSeconds?: number }): void;
+  getPlaylist(): string[] | null;
+  getPlaylistIndex(): number;
   playVideo(): void;
   pauseVideo(): void;
   stopVideo(): void;
@@ -64,10 +69,12 @@ export class YouTubeAdapter implements PlaybackAdapter {
   private host: string | null = null;
   private poll: ReturnType<typeof setInterval> | null = null;
   private volume = 100;
+  /** Set while a whole playlist plays in the player, which moves through its videos itself. */
+  private list: string | null = null;
 
   constructor(private events: AdapterEvents) {}
 
-  private async ensurePlayer(videoId: string, opts: LoadOptions): Promise<boolean> {
+  private async ensurePlayer(videoId: string | null, opts: LoadOptions): Promise<boolean> {
     const host = getSettings().youtubePrivacyMode ? "https://www.youtube-nocookie.com" : "https://www.youtube.com";
     if (this.player && this.host === host) return false;
     this.destroy();
@@ -80,12 +87,13 @@ export class YouTubeAdapter implements PlaybackAdapter {
     this.ready = new Promise<void>((resolve) => {
       this.player = new YT.Player(mount, {
         host,
-        videoId,
+        ...(videoId && { videoId }),
         width: "100%",
         height: "100%",
         playerVars: {
           autoplay: opts.autoplay ? 1 : 0,
           start: Math.floor(opts.startMs / 1000),
+          ...(this.list && { listType: "playlist", list: this.list }),
           playsinline: 1,
           rel: 0,
           enablejsapi: 1,
@@ -124,10 +132,14 @@ export class YouTubeAdapter implements PlaybackAdapter {
       case 3:
         this.events.onState({ status: "buffering", ...pos() });
         break;
-      case 0:
+      case 0: {
         this.stopPolling();
+        // In a playlist only the last video ends the item; the player moves on to the next one itself.
+        const last = (p.getPlaylist()?.length ?? 0) - 1;
+        if (this.list && p.getPlaylistIndex() < last) break;
         this.events.onState({ status: "ended", ...pos() });
         break;
+      }
       case 5:
         this.events.onState({ status: "paused", ...pos() });
         break;
@@ -149,14 +161,25 @@ export class YouTubeAdapter implements PlaybackAdapter {
   }
 
   async load(track: Track, opts: LoadOptions) {
-    const videoId = track.playbackRef ?? track.id;
+    const ref = track.playbackRef ?? track.id;
+    this.list = collectionKind(track) ? ref.replace(/^playlist:/, "") : null;
+    const videoId = this.list ? null : ref;
     const created = await this.ensurePlayer(videoId, opts);
     if (created) {
       if (!opts.autoplay) this.events.onState({ status: "paused", positionMs: opts.startMs });
-      return; // initial video was passed to the constructor
+      return; // initial video or playlist was passed to the constructor
     }
     await this.ready;
-    const args = { videoId, startSeconds: Math.floor(opts.startMs / 1000) };
+    if (this.list) {
+      const list = { list: this.list, listType: "playlist" as const, index: 0, startSeconds: Math.floor(opts.startMs / 1000) };
+      if (opts.autoplay) this.player!.loadPlaylist(list);
+      else {
+        this.player!.cuePlaylist(list);
+        this.events.onState({ status: "paused", positionMs: opts.startMs });
+      }
+      return;
+    }
+    const args = { videoId: videoId!, startSeconds: Math.floor(opts.startMs / 1000) };
     if (opts.autoplay) this.player!.loadVideoById(args);
     else {
       this.player!.cueVideoById(args);
