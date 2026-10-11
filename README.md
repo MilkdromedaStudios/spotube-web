@@ -3,8 +3,9 @@
 
 # Spotube Web
 
-An ad-free, account-free music player for the browser. It searches YouTube, Spotify, SoundCloud and Apple Music through their
-official APIs, plays music through their official players, and keeps your library in your own browser (IndexedDB).
+An ad-free, account-free music player for the browser. It searches YouTube, Spotify, SoundCloud and Apple Music using provider integrations (Spotify
+catalogue metadata via the public third-party wolfXspotify API), plays through official players,
+and keeps your library in your own browser (IndexedDB).
 
 </div>
 
@@ -22,16 +23,20 @@ Function for `/api`.
 | Name | Enables |
 | --- | --- |
 | `YOUTUBE_API_KEY` | YouTube search (YouTube Data API v3 key; recommended) |
-| `SPOTIFY_CLIENT_ID`, `SPOTIFY_CLIENT_SECRET` | Spotify search. Redirect URI: `https://<your-domain>/api/spotify/callback` |
+| *(none)* | Spotify public catalogue search and playlist/album metadata via wolfXspotify (no key required) |
+| `SPOTIFY_CLIENT_ID`, `SPOTIFY_CLIENT_SECRET` | Optional Spotify account sign-in and Premium SDK playback; redirect URI: `https://<your-domain>/api/spotify/callback` |
 | `SESSION_SECRET` | Spotify sign-in (32+ random characters, `openssl rand -hex 32`) |
 | `SOUNDCLOUD_CLIENT_ID`, `SOUNDCLOUD_CLIENT_SECRET` | SoundCloud search |
 | `APPLE_MUSIC_TEAM_ID`, `APPLE_MUSIC_KEY_ID`, `APPLE_MUSIC_PRIVATE_KEY` | Apple Music (MusicKit key, whole .p8 contents) |
 | `ALLOWED_ORIGINS`, `YOUTUBE_REGION_CODE`, `SPOTIFY_REDIRECT_URI` | Optional |
 
-Every key is optional. Without any, the site still works for local playlists and pasted links: a pasted Spotify album,
-playlist or artist link, or a SoundCloud playlist link, is saved as one item that plays in that provider's own player (which
-lists its songs). Spotify only gives API keys to developers with Spotify Premium, and SoundCloud only to Artist Pro accounts. Visitors never configure
-anything. If the build complains about Node, add a `NODE_VERSION` variable of `22`.
+Every key is optional. Spotify public metadata search, album browsing, artist lookup, and public playlist
+imports use the third-party [wolfXspotify API](https://spotify.xwolf.space/) without app credentials.
+Its availability and data coverage depend on that external service, and it is not affiliated with Spotify.
+No third-party token endpoint is used by Spotube Web. Spotify playback still uses Spotify's official
+embed, or the Web Playback SDK with an authenticated Premium account. Without any provider keys,
+local playlists and pasted music links still work. Visitors never configure anything.
+If the build complains about Node, add a `NODE_VERSION` variable of `22`.
 
 ## Develop
 
