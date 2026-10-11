@@ -99,9 +99,25 @@ function SpotifyAccount() {
         <p className="text-sm font-semibold">Spotify OAuth callback URL</p>
         {spotifyRedirectError && <Notice tone="warn">{spotifyRedirectError}</Notice>}
         {spotifyRedirectUri && (
-          <code className="my-2 block break-all rounded-lg bg-surface px-3 py-2 text-xs">
-            {spotifyRedirectUri}
-          </code>
+          <div className="my-2 flex flex-wrap items-center gap-2">
+            <code className="min-w-0 flex-1 break-all rounded-lg bg-surface px-3 py-2 text-xs">
+              {spotifyRedirectUri}
+            </code>
+            <Button
+              size="sm"
+              variant="outline"
+              onClick={async () => {
+                try {
+                  await navigator.clipboard.writeText(spotifyRedirectUri);
+                  toast.success("Spotify callback URL copied");
+                } catch {
+                  toast.error("Select and copy the URL above.");
+                }
+              }}
+            >
+              Copy URL
+            </Button>
+          </div>
         )}
         <p className="text-xs text-muted">
           Add this exact URL to your Spotify Developer Dashboard in App Settings, under Redirect URIs, and save.
