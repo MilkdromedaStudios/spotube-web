@@ -1,6 +1,8 @@
 "use client";
 
 import { StageSlot, stageHeight, useStageProvider } from "./MediaStage";
+import { collectionKind } from "@/lib/collections";
+import { currentTrack, usePlayer } from "@/lib/player/engine";
 import { AD_NOTICE } from "./PlayerBar";
 import { QueueList } from "./QueuePanel";
 import { useSettings } from "@/lib/settings";
@@ -9,6 +11,8 @@ import { PROVIDER_LABELS } from "@/lib/types";
 /** Right-hand "now playing" column on large screens, hosting the official provider player. */
 export function StagePanel() {
   const provider = useStageProvider();
+  const track = usePlayer((s) => currentTrack(s));
+  const collection = track?.provider === "spotify" && !!collectionKind(track);
   const { showAdNotices } = useSettings();
   if (!provider) return null;
   return (
@@ -17,9 +21,14 @@ export function StagePanel() {
       <StageSlot
         priority={50}
         className={provider === "youtube" ? "aspect-video w-full shrink-0" : "w-full shrink-0"}
-        style={provider === "youtube" ? undefined : { height: stageHeight(provider, "panel") }}
+        style={provider === "youtube" ? undefined : { height: stageHeight(provider, "panel", collection) }}
       />
       {showAdNotices && AD_NOTICE[provider] && <p className="text-xs text-subtle">{AD_NOTICE[provider]}</p>}
+      {provider === "spotify" && track?.url && (
+        <a className="text-xs text-accent hover:underline" href={track.url} target="_blank" rel="noopener noreferrer">
+          No sound? Press Play inside the Spotify widget or open on Spotify ↗
+        </a>
+      )}
       <div className="mt-2">
         <h2 className="mb-2 text-sm font-semibold">Up next</h2>
         <QueueList />
@@ -31,10 +40,17 @@ export function StagePanel() {
 /** Below large screens the provider player sits in a dock above the player bar. */
 export function MobileDock() {
   const provider = useStageProvider();
+  const track = usePlayer((s) => currentTrack(s));
+  const collection = track?.provider === "spotify" && !!collectionKind(track);
   if (!provider) return null;
   return (
     <div className="shrink-0 border-t border-line bg-surface p-2 lg:hidden">
-      <StageSlot priority={10} className="w-full" style={{ height: stageHeight(provider, "dock") }} />
+      <StageSlot priority={10} className="w-full" style={{ height: stageHeight(provider, "dock", collection) }} />
+      {provider === "spotify" && track?.url && (
+        <a className="mt-1 block text-center text-xs text-accent hover:underline" href={track.url} target="_blank" rel="noopener noreferrer">
+          Spotify not playing? Open song on Spotify ↗
+        </a>
+      )}
     </div>
   );
 }
