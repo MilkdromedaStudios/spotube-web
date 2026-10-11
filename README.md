@@ -38,6 +38,32 @@ embed, or the Web Playback SDK with an authenticated Premium account. Without an
 local playlists and pasted music links still work. Visitors never configure anything.
 If the build complains about Node, add a `NODE_VERSION` variable of `22`.
 
+## Fix Spotify Connect: redirect_uri not matching configuration
+
+Spotify Connect uses the official Spotify Authorization Code Flow; the public
+wolfXspotify catalogue does not replace the Spotify account sign-in.
+
+1. Deploy your production site and open **Settings → Providers** in Spotube Web.
+   Copy the exact **Spotify OAuth callback URL** displayed there.
+2. In the [Spotify Developer Dashboard](https://developer.spotify.com/dashboard),
+   choose the Spotify app that provided your `SPOTIFY_CLIENT_ID`, open its settings,
+   and add that exact callback to **Redirect URIs**. **Save** the settings.
+3. If you have a custom production domain (or open Cloudflare preview URLs), set
+   `SPOTIFY_REDIRECT_URI` in Cloudflare Pages → Settings → Variables and Secrets
+   to the same registered production callback URL, then redeploy. Example:
+   `https://your-production-domain.example/api/spotify/callback`.
+4. Use **Connect Spotify** from your main site. With
+   `SPOTIFY_REDIRECT_URI` set to that site's URL, login started on a different
+   preview hostname will redirect to your canonical site before creating an OAuth
+   session, avoiding cross-domain state cookie failures.
+
+**The redirect URI must exactly match Spotify's allowlist** (scheme, hostname,
+path, case and trailing slash). It must be HTTPS in production, and the correct
+path is `/api/spotify/callback` without a trailing slash. For local tests Spotify
+permits `http://127.0.0.1:PORT/api/spotify/callback`, but not `localhost`.
+Keep `SPOTIFY_CLIENT_SECRET` and `SESSION_SECRET` in Cloudflare secrets,
+not in repository files. The redirect URI itself is public and safe to display.
+
 ## Develop
 
 ```bash
