@@ -35,7 +35,7 @@ function loadEmbedApi() {
   embedApi = new Promise<EmbedApi>((resolve, reject) => {
     // Script load can succeed even when an extension blocks Spotify's readiness
     // callback; reject instead of leaving the player on "Loading" forever.
-    const timeout = setTimeout(() => reject(new Error("Spotify embed did not initialize. Try disabling content blockers for this site.")), 20000);
+    const timeout = setTimeout(() => reject(new Error("Spotify embed did not initialize. Switching to the standard player.")), 8000);
     window.onSpotifyIframeApiReady = (api) => {
       clearTimeout(timeout);
       resolve(api);
@@ -67,14 +67,51 @@ export class SpotifyEmbedAdapter implements PlaybackAdapter {
   /** Albums, playlists and artists play in the taller embed, which lists and steps through their songs. */
   private collection = false;
   private height = 0;
+  private fallbackFrame: HTMLIFrameElement | null = null;
 
   constructor(private events: AdapterEvents) {}
+
+  /**
+   * A native Spotify iframe is more robust than the Iframe API when script
+   * blockers or third-party cookie restrictions prevent its JS handshake.
+   * The listener may press Play directly in the visible, official player.
+   */
+  private mountNativeEmbed(uri: string): void {
+    const [scheme, kind, id] = uri.split(":");
+    if (scheme !== "spotify" || !["track", "album", "playlist", "artist"].includes(kind) ||
+        !/^[A-Za-z0-9]{22}$/.test(id ?? "")) {
+      throw new Error("Invalid Spotify music link.");
+    }
+    this.controller?.destroy();
+    this.controller = null;
+    this.clearNudge();
+    const host = hostElement("spotify");
+    host.replaceChildren();
+    const frame = document.createElement("iframe");
+    frame.src = `https://open.spotify.com/embed/${kind}/${id}?utm_source=generator`;
+    frame.title = "Spotify music player";
+    frame.setAttribute("allow", "autoplay; clipboard-write; encrypted-media; fullscreen; picture-in-picture");
+    frame.setAttribute("loading", "eager");
+    frame.setAttribute("referrerpolicy", "strict-origin-when-cross-origin");
+    frame.style.cssText = "width:100%;height:100%;border:0;display:block;";
+    frame.addEventListener("error", () =>
+      this.events.onError({ message: "Spotify's embed could not load. Open this track on Spotify.", fatal: false, notice: true }),
+    );
+    host.appendChild(frame);
+    this.fallbackFrame = frame;
+    this.events.onState({ status: "paused", positionMs: 0 });
+    this.events.onError({
+      message: "Use the Play button inside the Spotify player. Your browser may restrict embedded playback.",
+      fatal: false, notice: true,
+    });
+  }
 
   private async ensure(uri: string): Promise<boolean> {
     const height = this.collection ? 352 : 152;
     if (this.controller && this.height === height) return false;
     this.controller?.destroy();
     this.controller = null;
+    this.fallbackFrame = null;
     this.height = height;
     const api = await loadEmbedApi();
     const host = hostElement("spotify");
@@ -82,7 +119,7 @@ export class SpotifyEmbedAdapter implements PlaybackAdapter {
     const mount = document.createElement("div");
     host.appendChild(mount);
     this.controller = await new Promise<EmbedController>((resolve, reject) => {
-      const timer = setTimeout(() => reject(new Error("Spotify did not create its embedded player. Check browser privacy settings.")), 20000);
+      const timer = setTimeout(() => reject(new Error("Spotify iframe API did not create a player. Switching to the standard player.")), 8000);
       try {
         api.createController(mount, { uri, width: "100%", height }, (controller) => {
           clearTimeout(timer);
@@ -129,24 +166,35 @@ export class SpotifyEmbedAdapter implements PlaybackAdapter {
     this.wantPlay = opts.autoplay;
     this.playing = false;
     this.pendingSeek = opts.startMs;
-    const created = await this.ensure(uri);
-    if (!created) this.controller!.loadUri(uri);
-    if (opts.autoplay) {
-      // Newly created embeds must finish initializing before Spotify accepts
-      // play(); the "ready" listener above will start it. Existing embeds can
-      // be started immediately after loading the next URI.
-      if (!created) this.controller!.play();
-      this.clearNudge();
-      // Browsers may block the embed from starting without a click inside it.
-      this.nudge = setTimeout(() => {
-        if (!this.playing)
-          this.events.onError({ message: "Spotify blocked automatic playback. Press Play inside the Spotify player, or open the song on Spotify. Free embeds may only play previews.", fatal: false, notice: true });
-      }, 5000);
-    } else this.events.onState({ status: "paused", positionMs: 0 });
+    try {
+      const created = await this.ensure(uri);
+      if (!created) this.controller!.loadUri(uri);
+      // Never leave the toolbar stuck in "Loading..." when a browser denies autoplay.
+      this.events.onState({ status: "paused", positionMs: opts.startMs });
+      if (opts.autoplay) {
+        if (!created) this.controller!.play();
+        this.clearNudge();
+        this.nudge = setTimeout(() => {
+          if (!this.playing)
+            this.events.onError({
+              message: "Press Play inside the Spotify widget. If it stays blank, open on Spotify.",
+              fatal: false, notice: true,
+            });
+        }, 6000);
+      }
+    } catch {
+      // The official iframe needs no JS handshake; it is the final fallback
+      // when the Iframe API does not initialize.
+      this.mountNativeEmbed(uri);
+    }
   }
 
   play() {
     this.wantPlay = true;
+    if (this.fallbackFrame) {
+      this.events.onError({ message: "Press Play inside the Spotify widget to start the song.", fatal: false, notice: true });
+      return;
+    }
     this.controller?.resume();
   }
   pause() {

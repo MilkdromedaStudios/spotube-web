@@ -8,12 +8,12 @@ export const metadata: Metadata = {
     "An open-source, ad-free web music player based on Spotube. Search YouTube, Spotify, SoundCloud and Apple Music and keep your library in your own browser.",
   applicationName: "Spotube Web",
   manifest: "/manifest.webmanifest",
-  icons: { icon: "/icon-64.png", apple: "/icon-192.png" },
+  icons: { icon: [{ url: "/brand-icon.svg", type: "image/svg+xml" }], apple: "/brand-icon.svg" },
   robots: { index: true, follow: true },
 };
 
 export const viewport: Viewport = {
-  themeColor: "#09090b",
+  themeColor: "#a7e8ff",
   width: "device-width",
   initialScale: 1,
   viewportFit: "cover",
