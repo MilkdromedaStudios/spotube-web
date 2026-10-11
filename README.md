@@ -28,7 +28,9 @@ Function for `/api`.
 | `APPLE_MUSIC_TEAM_ID`, `APPLE_MUSIC_KEY_ID`, `APPLE_MUSIC_PRIVATE_KEY` | Apple Music (MusicKit key, whole .p8 contents) |
 | `ALLOWED_ORIGINS`, `YOUTUBE_REGION_CODE`, `SPOTIFY_REDIRECT_URI` | Optional |
 
-Every key is optional: without any, the site still works for local playlists and pasted links. Visitors never configure
+Every key is optional. Without any, the site still works for local playlists and pasted links: a pasted Spotify album,
+playlist or artist link, or a SoundCloud playlist link, is saved as one item that plays in that provider's own player (which
+lists its songs). Spotify only gives API keys to developers with Spotify Premium, and SoundCloud only to Artist Pro accounts. Visitors never configure
 anything. If the build complains about Node, add a `NODE_VERSION` variable of `22`.
 
 ## Develop

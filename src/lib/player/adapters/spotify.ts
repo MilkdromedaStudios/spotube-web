@@ -1,6 +1,7 @@
 "use client";
 
 import { hostElement, loadScript, type AdapterEvents, type LoadOptions, type PlaybackAdapter } from "./types";
+import { collectionKind } from "@/lib/collections";
 import { getUserToken } from "@/lib/providers/spotify";
 import type { Track } from "@/lib/types";
 
@@ -54,18 +55,25 @@ export class SpotifyEmbedAdapter implements PlaybackAdapter {
   private last = { position: 0, duration: 0 };
   private nudge: ReturnType<typeof setTimeout> | null = null;
   private pendingSeek = 0;
+  /** Albums, playlists and artists play in the taller embed, which lists and steps through their songs. */
+  private collection = false;
+  private height = 0;
 
   constructor(private events: AdapterEvents) {}
 
   private async ensure(uri: string): Promise<boolean> {
-    if (this.controller) return false;
+    const height = this.collection ? 352 : 152;
+    if (this.controller && this.height === height) return false;
+    this.controller?.destroy();
+    this.controller = null;
+    this.height = height;
     const api = await loadEmbedApi();
     const host = hostElement("spotify");
     host.innerHTML = "";
     const mount = document.createElement("div");
     host.appendChild(mount);
     this.controller = await new Promise<EmbedController>((resolve) =>
-      api.createController(mount, { uri, width: "100%", height: 152 }, (c) => resolve(c)),
+      api.createController(mount, { uri, width: "100%", height }, (c) => resolve(c)),
     );
     this.controller.addListener("ready", () => {
       if (this.wantPlay) this.controller?.play();
@@ -84,7 +92,8 @@ export class SpotifyEmbedAdapter implements PlaybackAdapter {
         this.clearNudge();
         return this.events.onState({ status: "playing", positionMs: d.position, durationMs: d.duration });
       }
-      const ended = this.playing && d.duration > 0 && d.position >= d.duration - 750;
+      // In a collection the embed moves on to the next song itself, so one song ending isn't the end.
+      const ended = !this.collection && this.playing && d.duration > 0 && d.position >= d.duration - 750;
       this.playing = false;
       this.events.onState({ status: ended ? "ended" : "paused", positionMs: d.position, durationMs: d.duration });
     });
@@ -98,6 +107,7 @@ export class SpotifyEmbedAdapter implements PlaybackAdapter {
 
   async load(track: Track, opts: LoadOptions) {
     const uri = uriFor(track);
+    this.collection = !!collectionKind(track);
     this.wantPlay = opts.autoplay;
     this.playing = false;
     this.pendingSeek = opts.startMs;
