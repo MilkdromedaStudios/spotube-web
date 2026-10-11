@@ -30,7 +30,7 @@ function fingerprint(track: Track): string | null {
   }
   const song = normalize(title);
   // Without both, an automatic match could collapse unrelated tracks.
-  return song && artist ? `${song}::${artist.replace(/s/g, "")}` : null;
+  return song && artist ? `${song}::${artist.replace(/\s/g, "")}` : null;
 }
 
 function closeDuration(a: Track, b: Track): boolean {
