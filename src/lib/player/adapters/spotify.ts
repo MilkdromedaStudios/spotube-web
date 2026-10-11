@@ -29,24 +29,33 @@ declare global {
   }
 }
 
-let embedApi: Promise<EmbedApi> | null = null;
-function loadEmbedApi() {
-  if (embedApi) return embedApi;
-  embedApi = new Promise<EmbedApi>((resolve, reject) => {
-    // Script load can succeed even when an extension blocks Spotify's readiness
-    // callback; reject instead of leaving the player on "Loading" forever.
-    const timeout = setTimeout(() => reject(new Error("Spotify embed did not initialize. Switching to the standard player.")), 8000);
+const EMBED_API_URL = "https://open.spotify.com/embed/iframe-api/v1";
+/** Spotify hands over its iFrame API once per page; keep it even if it arrives after a timeout. */
+let embedApi: EmbedApi | null = null;
+let embedApiArrival: Promise<EmbedApi> | null = null;
+
+function loadEmbedApi(timeoutMs = 8000): Promise<EmbedApi> {
+  if (embedApi) return Promise.resolve(embedApi);
+  embedApiArrival ??= new Promise<EmbedApi>((resolve) => {
     window.onSpotifyIframeApiReady = (api) => {
-      clearTimeout(timeout);
+      embedApi = api;
       resolve(api);
     };
-    loadScript("https://open.spotify.com/embed/iframe-api/v1").catch((error) => {
+  });
+  const arrival = embedApiArrival;
+  return new Promise<EmbedApi>((resolve, reject) => {
+    // Script load can succeed even when an extension blocks Spotify's readiness
+    // callback; reject instead of leaving the player on "Loading" forever.
+    const timeout = setTimeout(() => reject(new Error("Spotify embed did not initialize. Switching to the standard player.")), timeoutMs);
+    void arrival.then((api) => {
+      clearTimeout(timeout);
+      resolve(api);
+    });
+    loadScript(EMBED_API_URL).catch((error) => {
       clearTimeout(timeout);
       reject(error);
     });
   });
-  embedApi.catch(() => (embedApi = null));
-  return embedApi;
 }
 
 /**
@@ -61,12 +70,20 @@ export class SpotifyEmbedAdapter implements PlaybackAdapter {
   private controller: EmbedController | null = null;
   private wantPlay = false;
   private playing = false;
+  /** The loaded song has played at some point, so Play resumes it instead of starting over. */
+  private started = false;
   private last = { position: 0, duration: 0 };
   private nudge: ReturnType<typeof setTimeout> | null = null;
+  /** Asks the embed to start again when it hasn't reported playback yet. */
+  private kick: ReturnType<typeof setTimeout> | null = null;
+  private attempts = 0;
   private pendingSeek = 0;
   /** Albums, playlists and artists play in the taller embed, which lists and steps through their songs. */
   private collection = false;
   private height = 0;
+  private uri = "";
+  /** Increases on every load so a slower, older load can't replace the current player. */
+  private seq = 0;
   private fallbackFrame: HTMLIFrameElement | null = null;
 
   constructor(private events: AdapterEvents) {}
@@ -84,7 +101,7 @@ export class SpotifyEmbedAdapter implements PlaybackAdapter {
     }
     this.controller?.destroy();
     this.controller = null;
-    this.clearNudge();
+    this.clearTimers();
     const host = hostElement("spotify");
     host.replaceChildren();
     const frame = document.createElement("iframe");
@@ -106,7 +123,7 @@ export class SpotifyEmbedAdapter implements PlaybackAdapter {
     });
   }
 
-  private async ensure(uri: string): Promise<boolean> {
+  private async ensure(uri: string, seq: number): Promise<boolean> {
     const height = this.collection ? 352 : 152;
     if (this.controller && this.height === height) return false;
     this.controller?.destroy();
@@ -114,28 +131,41 @@ export class SpotifyEmbedAdapter implements PlaybackAdapter {
     this.fallbackFrame = null;
     this.height = height;
     const api = await loadEmbedApi();
+    if (seq !== this.seq) throw new Error("superseded");
     const host = hostElement("spotify");
-    host.innerHTML = "";
+    host.replaceChildren();
     const mount = document.createElement("div");
     host.appendChild(mount);
-    this.controller = await new Promise<EmbedController>((resolve, reject) => {
+    const controller = await new Promise<EmbedController>((resolve, reject) => {
       const timer = setTimeout(() => reject(new Error("Spotify iframe API did not create a player. Switching to the standard player.")), 8000);
       try {
-        api.createController(mount, { uri, width: "100%", height }, (controller) => {
+        api.createController(mount, { uri, width: "100%", height }, (c) => {
           clearTimeout(timer);
-          resolve(controller);
+          resolve(c);
         });
       } catch (error) {
         clearTimeout(timer);
         reject(error);
       }
     });
-    this.controller.addListener("ready", () => {
-      if (this.wantPlay) this.controller?.play();
+    if (seq !== this.seq) {
+      // A newer song was picked while this player was being created.
+      controller.destroy();
+      throw new Error("superseded");
+    }
+    this.controller = controller;
+    controller.addListener("ready", () => {
+      if (controller === this.controller && this.wantPlay && !this.started) this.start();
     });
-    this.controller.addListener("playback_update", (e) => {
+    controller.addListener("playback_update", (e) => {
+      if (controller !== this.controller) return;
       const d = e.data as { isPaused: boolean; isBuffering: boolean; duration: number; position: number };
       this.last = { position: d.position, duration: d.duration };
+      if (!d.isPaused && this.kick) {
+        // The embed took the play request (it may still be buffering); don't ask again.
+        clearTimeout(this.kick);
+        this.kick = null;
+      }
       if (!d.isPaused && !d.isBuffering && this.pendingSeek) {
         const s = this.pendingSeek;
         this.pendingSeek = 0;
@@ -144,7 +174,8 @@ export class SpotifyEmbedAdapter implements PlaybackAdapter {
       if (d.isBuffering) return this.events.onState({ status: "buffering", positionMs: d.position, durationMs: d.duration });
       if (!d.isPaused) {
         this.playing = true;
-        this.clearNudge();
+        this.started = true;
+        this.clearTimers();
         return this.events.onState({ status: "playing", positionMs: d.position, durationMs: d.duration });
       }
       // In a collection the embed moves on to the next song itself, so one song ending isn't the end.
@@ -155,55 +186,110 @@ export class SpotifyEmbedAdapter implements PlaybackAdapter {
     return true;
   }
 
-  private clearNudge() {
+  private clearTimers() {
     if (this.nudge) clearTimeout(this.nudge);
-    this.nudge = null;
+    if (this.kick) clearTimeout(this.kick);
+    this.nudge = this.kick = null;
+  }
+
+  /** Waits `ms`, then asks the embed to play if it still hasn't started. */
+  private scheduleStart(ms: number) {
+    if (this.kick) clearTimeout(this.kick);
+    this.kick = setTimeout(() => {
+      this.kick = null;
+      if (this.wantPlay && !this.started && this.attempts < 3) this.start();
+    }, ms);
+  }
+
+  /**
+   * Starts the loaded song. Spotify can drop a play request that arrives while
+   * the embed is still switching songs, so it is repeated a couple of times
+   * until the embed reports playback.
+   */
+  private start() {
+    if (!this.controller) return;
+    this.attempts++;
+    try {
+      this.controller.play();
+    } catch {
+      /* The embed is still loading; the retry below asks again. */
+    }
+    this.scheduleStart(2500);
   }
 
   async load(track: Track, opts: LoadOptions) {
     const uri = uriFor(track);
+    const seq = ++this.seq;
+    this.uri = uri;
     this.collection = !!collectionKind(track);
     this.wantPlay = opts.autoplay;
     this.playing = false;
+    this.started = false;
+    this.attempts = 0;
     this.pendingSeek = opts.startMs;
+    this.clearTimers();
     try {
-      const created = await this.ensure(uri);
+      const created = await this.ensure(uri, seq);
       if (!created) this.controller!.loadUri(uri);
       // Never leave the toolbar stuck in "Loading..." when a browser denies autoplay.
       this.events.onState({ status: "paused", positionMs: opts.startMs });
       if (opts.autoplay) {
-        if (!created) this.controller!.play();
-        this.clearNudge();
+        // The embed's "ready" event starts the song; this covers embeds that don't send it after loadUri.
+        this.scheduleStart(created ? 3000 : 800);
         this.nudge = setTimeout(() => {
           if (!this.playing)
             this.events.onError({
               message: "Press Play inside the Spotify widget. If it stays blank, open on Spotify.",
               fatal: false, notice: true,
             });
-        }, 6000);
+        }, 8000);
       }
     } catch {
+      if (seq !== this.seq) return;
       // The official iframe needs no JS handshake; it is the final fallback
       // when the Iframe API does not initialize.
       this.mountNativeEmbed(uri);
     }
   }
 
-  play() {
+  async play() {
     this.wantPlay = true;
     if (this.fallbackFrame) {
+      // Spotify's player API may have finished loading since the fallback was shown.
+      if (embedApi && this.uri) {
+        const seq = ++this.seq;
+        this.started = false;
+        this.attempts = 0;
+        try {
+          await this.ensure(this.uri, seq);
+          // The new embed's "ready" event starts the song; this covers a missed one.
+          this.scheduleStart(3000);
+        } catch {
+          if (seq === this.seq) this.mountNativeEmbed(this.uri);
+        }
+        return;
+      }
       this.events.onError({ message: "Press Play inside the Spotify widget to start the song.", fatal: false, notice: true });
       return;
     }
-    this.controller?.resume();
+    if (!this.controller) return;
+    if (this.started) {
+      this.controller.resume();
+      return;
+    }
+    // Nothing has played yet (the browser blocked autoplay): start the song.
+    this.attempts = 0;
+    this.start();
   }
   pause() {
     this.wantPlay = false;
+    if (this.kick) clearTimeout(this.kick);
+    this.kick = null;
     this.controller?.pause();
   }
   stop() {
     this.wantPlay = false;
-    this.clearNudge();
+    this.clearTimers();
     this.controller?.pause();
   }
   seek(ms: number) {
