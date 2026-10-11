@@ -10,6 +10,7 @@ import { useDbStatus } from "@/lib/db/db";
 import { createPlaylist } from "@/lib/db/library";
 import { providers, resolveLink, useProviderStatuses } from "@/lib/providers";
 import { parseMusicLink } from "@/lib/providers/links";
+import { getUserToken, spGet, useSpotifyAuth } from "@/lib/providers/spotify";
 import { toast } from "@/lib/toast";
 import { artistNames, PROVIDER_LABELS, type ProviderId, type Track } from "@/lib/types";
 
@@ -27,6 +28,7 @@ interface ImportCandidate {
 
 export default function ImportPlaylistsPage() {
   const router = useRouter();
+  const spotifyConnected = useSpotifyAuth((s) => s.connected);
   const status = useDbStatus();
   const providersStatus = useProviderStatuses();
   const ready = new Set(providersStatus.filter((p) => p.ready).map((p) => p.id));
@@ -36,13 +38,37 @@ export default function ImportPlaylistsPage() {
   const [loading, setLoading] = useState(false);
   const [saving, setSaving] = useState(false);
   const [savedCount, setSavedCount] = useState(0);
+  const [spotifyLoading, setSpotifyLoading] = useState(false);
+  const [spotifyLists, setSpotifyLists] = useState<{ id: string; name: string }[]>([]);
+  const [spotifySelected, setSpotifySelected] = useState<string[]>([]);
 
   function edit(key: string, update: (item: ImportCandidate) => ImportCandidate) {
     setCandidates((prev) => prev.map((item) => item.key === key ? update(item) : item));
   }
 
-  async function preview() {
-    const raw = [...new Set(input.split(/[\r\n,]+/).map((s) => s.trim()).filter(Boolean))];
+  async function browseSpotify() {
+    setSpotifyLoading(true);
+    try {
+      if (!(await getUserToken())) throw new Error("Connect your Spotify account in Settings first.");
+      const all: { id: string; name: string }[] = [];
+      for (let offset = 0; offset < 150; offset += 50) {
+        const page = await spGet<{ items: { id: string; name: string }[]; next?: string | null }>("/v1/me/playlists", { limit: 50, offset });
+        all.push(...page.items.filter((item) => item && item.id));
+        if (!page.next || page.items.length < 50) break;
+      }
+      setSpotifyLists(all);
+      setSpotifySelected([]);
+      if (!all.length) setErrors(["Your Spotify account returned no accessible playlists. You can still paste links."]);
+      else setErrors([]);
+    } catch (e) {
+      setErrors(["Spotify: " + ((e as Error).message || "Couldn't list your playlists")]);
+    } finally {
+      setSpotifyLoading(false);
+    }
+  }
+
+  async function preview(linksText: string = input) {
+    const raw = [...new Set(linksText.split(/[\r\n,]+/).map((s) => s.trim()).filter(Boolean))];
     if (!raw.length) {
       setErrors(["Paste at least one playlist link."]);
       return;
@@ -168,6 +194,47 @@ export default function ImportPlaylistsPage() {
             </Button>
             <span className="text-xs text-muted">Private playlists require the source's supported authorization.</span>
           </div>
+        </section>
+
+        <section className="flex flex-col gap-3 rounded-2xl border border-line p-5">
+          <h2 className="text-lg font-semibold">Or choose from your Spotify account</h2>
+          <p className="text-sm text-muted">If Spotify is connected, browse your own and followed playlists, then choose which ones to import.</p>
+          {spotifyConnected ? (
+            <Button variant="outline" disabled={spotifyLoading || loading || saving} onClick={() => void browseSpotify()}>
+              {spotifyLoading ? "Loading Spotify playlists…" : "Browse my Spotify playlists"}
+            </Button>
+          ) : (
+            <Link href="/settings#providers" className="text-sm text-accent underline">Connect Spotify in Settings</Link>
+          )}
+          {spotifyLists.length > 0 && (
+            <>
+              <p className="text-sm text-muted">{spotifySelected.length} of {spotifyLists.length} playlists selected</p>
+              <div className="max-h-60 divide-y divide-line overflow-y-auto">
+                {spotifyLists.map((item) => (
+                  <label key={item.id} className="flex cursor-pointer items-center gap-3 py-2 text-sm">
+                    <input
+                      type="checkbox"
+                      checked={spotifySelected.includes(item.id)}
+                      onChange={(e) => {
+                        const checked = e.target.checked;
+                        setSpotifySelected((prev) => checked ? [...prev, item.id] : prev.filter((id) => id !== item.id));
+                      }}
+                    />
+                    <span>{item.name}</span>
+                  </label>
+                ))}
+              </div>
+              <Button variant="outline" disabled={!spotifySelected.length || loading} onClick={() => {
+                const urls = spotifySelected.map((id) => "https://open.spotify.com/playlist/" + id);
+                const all = [input, ...urls].filter(Boolean).join("\n");
+                setInput(all);
+                void preview(all);
+              }}>
+                Preview selected Spotify playlists
+              </Button>
+              <p className="text-xs text-muted">Up to 10 playlist links can be previewed at once. Spotify may restrict some playlists or tracks.</p>
+            </>
+          )}
         </section>
 
         {status.status !== "ready" && (
