@@ -31,10 +31,16 @@ Function for `/api`.
 | `ALLOWED_ORIGINS`, `YOUTUBE_REGION_CODE`, `SPOTIFY_REDIRECT_URI` | Optional |
 
 Every key is optional. Spotify public metadata search, album browsing, artist lookup, and public playlist
-imports use the third-party [wolfXspotify API](https://spotify.xwolf.space/) without app credentials.
+imports first use the third-party [wolfXspotify API](https://spotify.xwolf.space/) without app credentials.
 Its availability and data coverage depend on that external service, and it is not affiliated with Spotify.
-No third-party token endpoint is used by Spotube Web. Spotify playback still uses Spotify's official
-embed, or the Web Playback SDK with an authenticated Premium account. Without any provider keys,
+If the third-party API fails, Spotube Web automatically falls back to Spotify's **official read-only
+Client Credentials API** when `SPOTIFY_CLIENT_ID` and `SPOTIFY_CLIENT_SECRET` are set in Cloudflare Pages.
+This server-to-server backup works even when account sign-in has a redirect URI error, but is subject
+to Spotify's current development-mode endpoint and Premium requirements. It does not grant access
+to private user playlists. The public Spotify oEmbed endpoint is a last resort for individual track
+metadata when app credentials are unavailable. No third-party token endpoint is used by Spotube Web.
+Spotify playback still uses Spotify's official embed, or the Web Playback SDK with an authenticated
+Premium account. Without any provider keys,
 local playlists and pasted music links still work. Visitors never configure anything.
 If the build complains about Node, add a `NODE_VERSION` variable of `22`.
 
