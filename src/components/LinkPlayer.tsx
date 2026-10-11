@@ -4,17 +4,35 @@ import { Link2, Play } from "lucide-react";
 import { useRouter } from "next/navigation";
 import { useState } from "react";
 import { Button, Spinner } from "./ui";
-import { playTrack } from "@/lib/player/engine";
-import { pathFor, resolveLink } from "@/lib/providers";
+import { playlistPath } from "@/lib/paths";
+import { playTrack, playTracks } from "@/lib/player/engine";
+import { pathFor, resolveLink, useProviderStatuses } from "@/lib/providers";
+import { parseMusicLink } from "@/lib/providers/links";
+import { savePlaylistLink } from "@/lib/savePlaylistLink";
 import { toast } from "@/lib/toast";
 
-/** Plays any YouTube / YouTube Music / Spotify / SoundCloud / Apple Music share link. */
+/**
+ * Plays any YouTube / YouTube Music / Spotify / SoundCloud / Apple Music share link.
+ * Playlist and album links are saved to the library first, then played.
+ */
 export function useOpenLink() {
   const router = useRouter();
+  const statuses = useProviderStatuses();
   const [busy, setBusy] = useState(false);
   const open = async (url: string) => {
     setBusy(true);
     try {
+      const link = parseMusicLink(url);
+      if (link && (link.kind === "playlist" || link.kind === "album")) {
+        const ready = !!statuses.find((s) => s.id === link.provider)?.ready;
+        const saved = await savePlaylistLink(link, ready);
+        router.push(playlistPath(saved.playlist.id));
+        await playTracks(saved.tracks);
+        toast.success(
+          saved.existed ? `"${saved.playlist.name}" is already in your library` : `Saved "${saved.playlist.name}" to your library`,
+        );
+        return true;
+      }
       const r = await resolveLink(url);
       if (r.kind === "track") {
         await playTrack(r.track);
@@ -50,7 +68,7 @@ export function LinkPlayer() {
         <input
           value={url}
           onChange={(e) => setUrl(e.target.value)}
-          placeholder="Paste a YouTube, YouTube Music, Spotify, SoundCloud or Apple Music link"
+          placeholder="Paste a song or playlist link from YouTube, YouTube Music, Spotify, SoundCloud or Apple Music"
           className="h-10 w-full bg-transparent text-sm outline-none placeholder:text-subtle"
           inputMode="url"
         />
