@@ -9,6 +9,7 @@ import { Button, Notice, LoadingState } from "@/components/ui";
 import { useDbStatus } from "@/lib/db/db";
 import { createPlaylist } from "@/lib/db/library";
 import { providers, resolveLink, useProviderStatuses } from "@/lib/providers";
+import { expandCollection } from "@/lib/player/expand";
 import { parseMusicLink } from "@/lib/providers/links";
 import { getUserToken, spGet, useSpotifyAuth } from "@/lib/providers/spotify";
 import { toast } from "@/lib/toast";
@@ -98,6 +99,21 @@ export default function ImportPlaylistsPage() {
           const key = parsed.provider + ":" + parsed.id;
           if (visited.has(key)) continue;
           visited.add(key);
+          const songs = await expandCollection(resolved.track).catch(() => null);
+          if (songs?.length) {
+            loaded.push({
+              key,
+              provider: parsed.provider,
+              id: parsed.id,
+              url: parsed.url,
+              name: resolved.track.title,
+              artwork: resolved.track.artwork,
+              tracks: songs,
+              selected: songs.map((t) => t.key),
+              include: true,
+            });
+            continue;
+          }
           loaded.push({
             key,
             provider: parsed.provider,
