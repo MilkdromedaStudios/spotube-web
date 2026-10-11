@@ -30,8 +30,35 @@ export const clientId = () => credentials().id;
 /** Public, key-free, read-only Spotify metadata adapter. OAuth is only for user features/playback. */
 export const catalog = wolfCatalog;
 
-export function redirectUri(origin: string) {
-  return env("SPOTIFY_REDIRECT_URI") || `${origin}/api/spotify/callback`;
+/**
+ * Spotify requires the authorization and token-exchange redirect_uri to be the
+ * exact same URL registered in the Spotify Developer Dashboard. For production,
+ * set SPOTIFY_REDIRECT_URI to the canonical site's HTTPS callback URL.
+ */
+export function redirectUri(origin: string): string {
+  const configured = env("SPOTIFY_REDIRECT_URI")?.trim();
+  if (!configured) return `${origin}/api/spotify/callback`;
+
+  let parsed: URL;
+  try {
+    parsed = new URL(configured);
+  } catch {
+    throw new ApiError(503, "not_configured", "SPOTIFY_REDIRECT_URI must be a full HTTPS URL ending in /api/spotify/callback.");
+  }
+  const loopback = parsed.hostname === "127.0.0.1" || parsed.hostname === "[::1]";
+  if (
+    (parsed.protocol !== "https:" && !(parsed.protocol === "http:" && loopback)) ||
+    parsed.pathname !== "/api/spotify/callback" ||
+    parsed.search !== "" || parsed.hash !== "" ||
+    !!parsed.username || !!parsed.password
+  ) {
+    throw new ApiError(
+      503, "not_configured",
+      "SPOTIFY_REDIRECT_URI must be an HTTPS URL ending exactly in /api/spotify/callback (no query or trailing slash). For local development, use http://127.0.0.1 instead of localhost.",
+    );
+  }
+  // Preserve the exact user-configured string; Spotify compares redirect URIs.
+  return configured;
 }
 
 export function authorizeUrl(origin: string, state: string) {
