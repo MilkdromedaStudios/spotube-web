@@ -52,6 +52,7 @@ interface ConfigState {
   /** Exact public OAuth callback URL sent to Spotify, never a credential. */
   spotifyRedirectUri?: string | null;
   spotifyRedirectError?: string | null;
+  spotifyClientId?: string | null;
   providers: ServerConfig;
   load: () => Promise<void>;
 }
@@ -61,12 +62,13 @@ export const useServerConfig = create<ConfigState>((set) => ({
   providers: { youtube: false, spotify: false, spotifyLogin: false, soundcloud: false, apple: false },
   load: async () => {
     try {
-      const { providers, spotifyRedirectUri, spotifyRedirectError } = await apiGet<{
+      const { providers, spotifyRedirectUri, spotifyRedirectError, spotifyClientId } = await apiGet<{
         providers: ServerConfig;
         spotifyRedirectUri?: string | null;
         spotifyRedirectError?: string | null;
+        spotifyClientId?: string | null;
       }>("/api/config");
-      set({ providers, spotifyRedirectUri, spotifyRedirectError, loaded: true, error: undefined });
+      set({ providers, spotifyRedirectUri, spotifyRedirectError, spotifyClientId, loaded: true, error: undefined });
     } catch (e) {
       set({ loaded: true, error: (e as Error).message });
     }
