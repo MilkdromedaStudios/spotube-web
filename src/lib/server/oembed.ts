@@ -63,7 +63,24 @@ export async function resolveLink(link: ParsedLink): Promise<Resolved> {
   }
 
   if (link.provider === "spotify") {
-    if (link.kind !== "track") return { kind: link.kind, provider: "spotify", id: link.id };
+    if (link.kind !== "track") {
+      if (configured.spotify) return { kind: link.kind, provider: "spotify", id: link.id };
+      // Without API keys the whole album, playlist or artist plays in Spotify's own embed.
+      const o = await oembed("https://open.spotify.com/oembed", link.url);
+      return {
+        kind: "track",
+        track: {
+          key: `spotify:${link.kind}:${link.id}`,
+          provider: "spotify",
+          id: `${link.kind}:${link.id}`,
+          title: o.title ?? `Spotify ${link.kind}`,
+          artists: [{ name: `Spotify ${link.kind}` }],
+          artwork: o.thumbnail_url,
+          url: link.url,
+          playbackRef: `spotify:${link.kind}:${link.id}`,
+        },
+      };
+    }
     if (configured.spotify) {
       const t = spTrackToTrack((await catalog(`/v1/tracks/${link.id}`, new URLSearchParams())) as SpTrack);
       if (t) return { kind: "track", track: t };
@@ -96,9 +113,22 @@ export async function resolveLink(link: ParsedLink): Promise<Resolved> {
     const src = decodeURIComponent(/src="([^"]+)"/.exec(o.html ?? "")?.[1] ?? "");
     const m = /api\.soundcloud\.com\/(tracks|playlists)\/(\d+)/.exec(src);
     if (!m) throw new ApiError(404, "not_found", "That SoundCloud link couldn't be resolved.");
-    if (m[1] === "playlists")
-      throw new ApiError(503, "not_configured", "Opening SoundCloud playlists needs SoundCloud API credentials on the server.");
     const byMatch = /^(.*) by (.*)$/.exec(o.title ?? "");
+    if (m[1] === "playlists")
+      // Without API keys the whole set plays in SoundCloud's own widget.
+      return {
+        kind: "track",
+        track: {
+          key: `soundcloud:playlist:${m[2]}`,
+          provider: "soundcloud",
+          id: `playlist:${m[2]}`,
+          title: byMatch?.[1] ?? o.title ?? "SoundCloud playlist",
+          artists: [{ name: o.author_name ?? byMatch?.[2] ?? "SoundCloud" }],
+          artwork: o.thumbnail_url,
+          url: link.url,
+          playbackRef: `https://api.soundcloud.com/playlists/${m[2]}`,
+        },
+      };
     return {
       kind: "track",
       track: {

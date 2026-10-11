@@ -1,6 +1,7 @@
 "use client";
 
 import { hostElement, loadScript, type AdapterEvents, type LoadOptions, type PlaybackAdapter } from "./types";
+import { collectionKind } from "@/lib/collections";
 import type { Track } from "@/lib/types";
 
 /* Minimal SoundCloud Widget API typings */
@@ -14,6 +15,8 @@ interface SCWidget {
   setVolume(v: number): void;
   getDuration(cb: (ms: number) => void): void;
   getPosition(cb: (ms: number) => void): void;
+  getSounds(cb: (sounds: unknown[]) => void): void;
+  getCurrentSoundIndex(cb: (index: number) => void): void;
 }
 declare global {
   interface Window {
@@ -53,8 +56,18 @@ export class SoundCloudAdapter implements PlaybackAdapter {
   private volume = 100;
   private pendingSeek = 0;
   private loadTimer: ReturnType<typeof setTimeout> | null = null;
+  /** A whole set plays in the taller widget, which lists its songs and moves through them itself. */
+  private collection = false;
 
   constructor(private events: AdapterEvents) {}
+
+  private finished() {
+    const ended = () => this.events.onState({ status: "ended", positionMs: this.duration, durationMs: this.duration });
+    if (!this.collection || !this.widget) return ended();
+    const w = this.widget;
+    // Only the last song of a set ends the item; the widget plays the others in order.
+    w.getCurrentSoundIndex((i) => w.getSounds((sounds) => i >= sounds.length - 1 && ended()));
+  }
 
   private async ensureWidget(url: string, autoplay: boolean): Promise<boolean> {
     if (this.widget) return false;
@@ -65,7 +78,7 @@ export class SoundCloudAdapter implements PlaybackAdapter {
     iframe.title = "SoundCloud player";
     iframe.allow = "autoplay; encrypted-media";
     iframe.width = "100%";
-    iframe.height = "166";
+    iframe.height = this.collection ? "400" : "166";
     iframe.style.border = "0";
     iframe.src = widgetSrc(url, autoplay);
     container.appendChild(iframe);
@@ -82,7 +95,7 @@ export class SoundCloudAdapter implements PlaybackAdapter {
       });
     });
     w.bind(E.PAUSE, () => w.getPosition((p) => this.events.onState({ status: "paused", positionMs: p, durationMs: this.duration })));
-    w.bind(E.FINISH, () => this.events.onState({ status: "ended", positionMs: this.duration, durationMs: this.duration }));
+    w.bind(E.FINISH, () => this.finished());
     w.bind(E.PLAY_PROGRESS, (e) =>
       this.events.onState({ status: "playing", positionMs: e?.currentPosition ?? 0, durationMs: this.duration || undefined }),
     );
@@ -110,6 +123,13 @@ export class SoundCloudAdapter implements PlaybackAdapter {
 
   async load(track: Track, opts: LoadOptions) {
     const url = track.playbackRef ?? track.url ?? `https://api.soundcloud.com/tracks/${track.id}`;
+    const collection = !!collectionKind(track);
+    if (this.widget && collection !== this.collection) {
+      // Switch between the compact and the tall widget.
+      this.clearLoadTimer();
+      this.widget = null;
+    }
+    this.collection = collection;
     this.pendingSeek = opts.startMs;
     this.duration = 0;
     if (await this.ensureWidget(url, opts.autoplay)) return;

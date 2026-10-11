@@ -7,6 +7,7 @@ import { SpotifyEmbedAdapter, SpotifySdkAdapter } from "./adapters/spotify";
 import type { AdapterError, AdapterState, PlaybackAdapter } from "./adapters/types";
 import { YouTubeAdapter } from "./adapters/youtube";
 import { nextIndex, previousIndex, shuffled } from "./queue";
+import { collectionKind } from "@/lib/collections";
 import { getDb } from "@/lib/db/db";
 import {
   clearResume,
@@ -95,8 +96,11 @@ function make(kind: string): PlaybackAdapter {
   return a;
 }
 
-function adapterKind(provider: ProviderId): string {
+function adapterKind(track: Track): string {
+  const provider = track.provider;
   if (provider !== "spotify") return provider;
+  // Albums, playlists and artists saved from links always play in the Spotify embed.
+  if (collectionKind(track)) return "spotify-embed";
   const auth = useSpotifyAuth.getState();
   const sdk = adapters.get("spotify-sdk") as SpotifySdkAdapter | undefined;
   const useSdk =
@@ -148,7 +152,9 @@ function onAdapterState(s: AdapterState) {
   } else lastTick = null;
 
   const durationMs = s.durationMs && s.durationMs > 0 ? s.durationMs : (get().durationMs ?? track.durationMs);
-  if (s.durationMs && s.durationMs > 1000 && (!track.durationMs || Math.abs(track.durationMs - s.durationMs) > 2000))
+  // In a collection the reported duration is the current song's, not the item's.
+  const collection = !!collectionKind(track);
+  if (!collection && s.durationMs && s.durationMs > 1000 && (!track.durationMs || Math.abs(track.durationMs - s.durationMs) > 2000))
     void learnDuration(track.key, s.durationMs);
 
   if (s.status === "ended") {
@@ -170,6 +176,7 @@ function onAdapterState(s: AdapterState) {
 
   if (
     s.status === "playing" &&
+    !collection &&
     getSettings().resumeLongTracks &&
     (durationMs ?? 0) > 10 * 60_000 &&
     now - lastResumeSave > 10_000
@@ -251,7 +258,7 @@ async function select(index: number, opts: { autoplay: boolean; startMs?: number
     return;
   }
 
-  const kind = adapterKind(track.provider);
+  const kind = adapterKind(track);
   const adapter = make(kind);
   for (const [k, a] of adapters) if (k !== kind) a.stop();
   current = adapter;
