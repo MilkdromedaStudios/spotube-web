@@ -33,7 +33,7 @@ export function env(name: EnvName): string | undefined {
 
 export const providersConfigured = () => ({
   youtube: !!env("YOUTUBE_API_KEY"),
-  spotify: !!(env("SPOTIFY_CLIENT_ID") && env("SPOTIFY_CLIENT_SECRET")),
+  spotify: true, // wolfXspotify read-only catalogue requires no credentials
   spotifyLogin: !!(env("SPOTIFY_CLIENT_ID") && env("SPOTIFY_CLIENT_SECRET") && env("SESSION_SECRET")),
   soundcloud: !!(env("SOUNDCLOUD_CLIENT_ID") && env("SOUNDCLOUD_CLIENT_SECRET")),
   apple: !!(env("APPLE_MUSIC_TEAM_ID") && env("APPLE_MUSIC_KEY_ID") && env("APPLE_MUSIC_PRIVATE_KEY")),
