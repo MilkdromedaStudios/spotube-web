@@ -133,13 +133,33 @@ async function publicTrack(path: string): Promise<unknown> {
 }
 
 export async function catalog(path: string, params: URLSearchParams): Promise<unknown> {
+  const hasAppCredentials = !!(env("SPOTIFY_CLIENT_ID") && env("SPOTIFY_CLIENT_SECRET"));
   try {
-    return await wolfCatalog(path, params);
+    const data = await wolfCatalog(path, params);
+    // If just one wolfXspotify search category fails, keep the successful
+    // categories AND fill the missing ones from the official API when possible.
+    if (path === "/v1/search" && hasAppCredentials) {
+      const catalogue = data as Record<string, unknown>;
+      const requested = (params.get("type") ?? "track").split(",");
+      const missing = requested.filter((type) => !Object.hasOwn(catalogue, `${type}s`));
+      if (missing.length) {
+        const options = new URLSearchParams(params);
+        options.set("type", missing.join(","));
+        try {
+          const backup = (await officialCatalog(path, options)) as Record<string, unknown>;
+          return { ...catalogue, ...backup };
+        } catch {
+          // Partial results are better than a whole-page 502.
+          return catalogue;
+        }
+      }
+    }
+    return data;
   } catch (error) {
     if (error instanceof ApiError && error.status === 400) throw error;
     // The public API can time out, rate-limit, or change its JSON format.
     // A failing upstream must never silently be interpreted as empty results.
-    if (env("SPOTIFY_CLIENT_ID") && env("SPOTIFY_CLIENT_SECRET")) {
+    if (hasAppCredentials) {
       try {
         return await officialCatalog(path, params);
       } catch (officialError) {
