@@ -207,7 +207,7 @@ function LibraryInner() {
     <Page
       title="Your Library"
       actions={
-        <div className="flex gap-2">
+        <div className="flex flex-wrap gap-2">
           <Button variant="outline" size="sm" onClick={() => router.push("/import")}>
             <Upload className="size-4" /> Import from music services
           </Button>
