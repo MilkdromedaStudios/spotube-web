@@ -159,7 +159,25 @@ export async function wolfCatalog(path: string, params: URLSearchParams): Promis
     if (!types.length) throw new ApiError(400, "bad_request", "Unsupported Spotify search type.");
     const entries = await Promise.all(types.map(async (type) => {
       const raw = await search(q, type, limit, offset);
-      const items = raw.map(type === "track" ? (t) => track(t) : type === "album" ? (a) => album(a) : type === "artist" ? (a) => artist(a) : (p) => playlist(p));
+      // Map each result type in its own branch. A conditional union of callbacks
+      // cannot be passed to Array.map under strict TypeScript checking.
+      let items: unknown[];
+      switch (type) {
+        case "track":
+          items = raw.map((item) => track(item));
+          break;
+        case "album":
+          items = raw.map((item) => album(item));
+          break;
+        case "artist":
+          items = raw.map((item) => artist(item));
+          break;
+        case "playlist":
+          items = raw.map((item) => playlist(item));
+          break;
+        default:
+          items = [];
+      }
       return [`${type}s`, { items }] as const;
     }));
     return Object.fromEntries(entries);
