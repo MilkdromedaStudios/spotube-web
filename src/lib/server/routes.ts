@@ -3,7 +3,7 @@
 import { parseMusicLink } from "../providers/links";
 import { developerToken } from "./apple";
 import { deleteCookie, getCookie, setCookie } from "./cookies";
-import { bindEnv, providersConfigured } from "./env";
+import { bindEnv, env, providersConfigured } from "./env";
 import { ApiError, errorJson, json, requireParam, sameOrigin } from "./http";
 import { resolveLink } from "./oembed";
 import { parseTypes } from "./params";
@@ -36,7 +36,7 @@ const get: Record<string, Handler> = {
     } catch (error) {
       spotifyRedirectError = error instanceof Error ? error.message : "Invalid Spotify redirect URI.";
     }
-    return json({ providers: providersConfigured(), spotifyRedirectUri, spotifyRedirectError });
+    return json({ providers: providersConfigured(), spotifyRedirectUri, spotifyRedirectError, spotifyClientId: env("SPOTIFY_CLIENT_ID") ?? null });
   },
 
   resolve: async (req, url) => {
