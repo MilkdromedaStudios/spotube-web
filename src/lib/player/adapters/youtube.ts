@@ -6,7 +6,7 @@ import { getSettings } from "@/lib/settings";
 import type { Track } from "@/lib/types";
 
 /* Minimal YouTube IFrame Player API typings */
-interface YTPlayer {
+export interface YTPlayer {
   loadVideoById(o: { videoId: string; startSeconds?: number }): void;
   cueVideoById(o: { videoId: string; startSeconds?: number }): void;
   loadPlaylist(o: { list: string; listType: "playlist"; index?: number; startSeconds?: number }): void;
@@ -35,7 +35,7 @@ declare global {
 }
 
 let apiReady: Promise<YTNamespace> | null = null;
-function loadApi(): Promise<YTNamespace> {
+export function loadApi(): Promise<YTNamespace> {
   if (window.YT?.Player) return Promise.resolve(window.YT);
   if (apiReady) return apiReady;
   apiReady = new Promise<YTNamespace>((resolve, reject) => {

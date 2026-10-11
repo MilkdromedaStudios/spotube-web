@@ -1,5 +1,6 @@
 import { getDb } from "@/lib/db/db";
-import { createPlaylist, getTracks } from "@/lib/db/library";
+import { createPlaylist, deletePlaylist, getTracks } from "@/lib/db/library";
+import { expandCollection } from "@/lib/player/expand";
 import type { PlaylistRecord } from "@/lib/db/schema";
 import { providers, resolveLink } from "@/lib/providers";
 import { CONFIG_HINT, ProviderError } from "@/lib/providers/api";
@@ -24,7 +25,19 @@ export async function savePlaylistLink(link: ParsedLink, providerReady: boolean)
     .filter((p) => p.source?.provider === link.provider && p.source.id === link.id)
     .first();
   if (existing) {
-    return { playlist: existing, tracks: await getTracks(existing.trackKeys), existed: true };
+    const saved = await getTracks(existing.trackKeys);
+    // A playlist saved earlier as one item is upgraded to its songs when they can now be listed.
+    const songs = saved.length === 1 && !providerReady ? await expandCollection(saved[0]).catch(() => null) : null;
+    if (!songs?.length) return { playlist: existing, tracks: saved, existed: true };
+    await deletePlaylist(existing.id);
+    const playlist = await createPlaylist({
+      name: existing.name,
+      description: existing.description,
+      artwork: existing.artwork,
+      tracks: songs,
+      source: existing.source,
+    });
+    return { playlist, tracks: songs, existed: false };
   }
 
   let name: string | undefined;
@@ -52,7 +65,9 @@ export async function savePlaylistLink(link: ParsedLink, providerReady: boolean)
     if (r.kind !== "track") throw new ProviderError(CONFIG_HINT[link.provider], "not_configured");
     name = r.track.title;
     artwork = r.track.artwork;
-    tracks = [r.track];
+    // YouTube playlists and SoundCloud sets are saved song by song; Spotify playlists stay one item.
+    const songs = await expandCollection(r.track).catch(() => null);
+    tracks = songs?.length ? songs : [r.track];
   }
   const playlist = await createPlaylist({
     name,
