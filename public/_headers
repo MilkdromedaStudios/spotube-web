@@ -1,0 +1,16 @@
+# Security headers for every page and static file, applied by Cloudflare Pages.
+#
+# The Content Security Policy is the site's privacy filter: only the official
+# player SDKs and APIs of the supported music providers may load scripts,
+# frames or make requests. Analytics, ad networks and every other third-party
+# script are blocked by the browser. Ads that providers serve inside their own
+# players are not touched. YouTube embeds need a referrer, so the origin is sent.
+/*
+  Content-Security-Policy: default-src 'self'; script-src 'self' 'unsafe-inline' https://www.youtube.com https://s.ytimg.com https://w.soundcloud.com https://open.spotify.com https://sdk.scdn.co https://js-cdn.music.apple.com; style-src 'self' 'unsafe-inline'; img-src 'self' data: blob: https:; font-src 'self' data:; connect-src 'self' https://api.spotify.com https://*.spotify.com wss://*.spotify.com https://*.scdn.co https://*.spotifycdn.com https://api.music.apple.com https://*.apple.com https://*.itunes.apple.com https://*.mzstatic.com; media-src 'self' data: blob: https://*.scdn.co https://*.spotifycdn.com https://*.apple.com https://*.itunes.apple.com https://*.mzstatic.com; frame-src https://www.youtube.com https://www.youtube-nocookie.com https://w.soundcloud.com https://open.spotify.com https://sdk.scdn.co https://*.apple.com; worker-src 'self' blob:; object-src 'none'; base-uri 'self'; form-action 'self' https://accounts.spotify.com; frame-ancestors 'none'; upgrade-insecure-requests
+  Referrer-Policy: strict-origin-when-cross-origin
+  X-Content-Type-Options: nosniff
+  Permissions-Policy: camera=(), microphone=(), geolocation=(), payment=(), usb=(), browsing-topics=(), interest-cohort=()
+  Cross-Origin-Opener-Policy: same-origin-allow-popups
+
+/_next/static/*
+  Cache-Control: public, max-age=31536000, immutable
