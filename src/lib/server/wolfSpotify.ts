@@ -139,7 +139,10 @@ async function search(q: string, type: string, limit: number, offset: number): P
   const params = new URLSearchParams({ q, type, limit: String(limit), offset: String(offset) });
   try {
     const response = await wolf("search", params);
-    return list(response.results);
+    if (!Array.isArray(response.results)) {
+      throw new ApiError(502, "upstream_error", "Spotify metadata search returned an unexpected response.");
+    }
+    return response.results;
   } catch (error) {
     // The service uses 404 to mean an ordinary empty search result.
     if (error instanceof ApiError && error.status === 404) return [];
@@ -157,11 +160,12 @@ export async function wolfCatalog(path: string, params: URLSearchParams): Promis
     const valid = new Set(["track", "album", "artist", "playlist"]);
     const types = [...new Set((params.get("type") ?? "track").split(","))].filter((t) => valid.has(t));
     if (!types.length) throw new ApiError(400, "bad_request", "Unsupported Spotify search type.");
-    const entries = await Promise.all(types.map(async (type) => {
+    // A failing artist/album search must not make otherwise-valid track
+    // results disappear. The provider uses independent upstream requests for
+    // every category and can fail selectively.
+    const settled = await Promise.allSettled(types.map(async (type) => {
       const raw = await search(q, type, limit, offset);
-      // Map each result type in its own branch. A conditional union of callbacks
-      // cannot be passed to Array.map under strict TypeScript checking.
-      let items: unknown[];
+      let items: unknown[] = [];
       switch (type) {
         case "track":
           items = raw.map((item) => track(item));
@@ -175,22 +179,27 @@ export async function wolfCatalog(path: string, params: URLSearchParams): Promis
         case "playlist":
           items = raw.map((item) => playlist(item));
           break;
-        default:
-          items = [];
       }
       return [`${type}s`, { items }] as const;
     }));
-    return Object.fromEntries(entries);
+    const successes = settled.filter((result) => result.status === "fulfilled");
+    if (!successes.length) {
+      const failure = settled.find((result): result is PromiseRejectedResult => result.status === "rejected");
+      throw failure?.reason ?? new ApiError(502, "upstream_error", "Spotify catalogue search is currently unavailable.");
+    }
+    return Object.fromEntries(successes.map((result) => result.value));
   }
 
   let match: RegExpMatchArray | null;
   if ((match = path.match(new RegExp(`^/v1/tracks/(${ID})$`)))) {
     const data = await wolf(`track/${match[1]}`);
+    if (!obj(data.track).id) throw new ApiError(502, "upstream_error", "Spotify track metadata is incomplete.");
     return track(data.track);
   }
   if ((match = path.match(new RegExp(`^/v1/albums/(${ID})(/tracks)?$`)))) {
     const data = await wolf(`album/${match[1]}`);
     const item = obj(data.album);
+    if (!item.id) throw new ApiError(502, "upstream_error", "Spotify album metadata is incomplete.");
     const full = album(item, true);
     if (!match[2]) return full;
     const tracks = list(obj(obj(full).tracks).items);
@@ -210,11 +219,13 @@ export async function wolfCatalog(path: string, params: URLSearchParams): Promis
       return { items: list(data.albums).map((a) => album(a)) };
     }
     const data = await wolf(`artist/${id}`);
+    if (!obj(data.artist).id) throw new ApiError(502, "upstream_error", "Spotify artist metadata is incomplete.");
     return artist(data.artist);
   }
   if ((match = path.match(new RegExp(`^/v1/playlists/(${ID})(/items|/tracks)?$`)))) {
     const data = await wolf(`playlist/${match[1]}`);
     const item = obj(data.playlist);
+    if (!item.id) throw new ApiError(502, "upstream_error", "Spotify playlist metadata is incomplete.");
     if (!match[2]) return playlist(item);
     const allTracks = list(item.tracks);
     const items = allTracks.slice(offset, offset + limit).map((t) => ({ track: track(t) }));

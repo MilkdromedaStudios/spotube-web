@@ -27,8 +27,153 @@ function credentials() {
 
 export const clientId = () => credentials().id;
 
-/** Public, key-free, read-only Spotify metadata adapter. OAuth is only for user features/playback. */
-export const catalog = wolfCatalog;
+/**
+ * Read-only metadata lookup. Prefer the public wolfXspotify service, but do
+ * not make the entire site depend on its uptime. When Cloudflare has the app's
+ * normal Spotify CLIENT_ID/SECRET, use the official Client Credentials flow as
+ * a metadata-only backup; it does not sign users in or enable audio downloads.
+ */
+let appToken: { value: string; expiresAt: number } | null = null;
+let tokenPending: Promise<string> | null = null;
+
+async function spotifyAppToken(): Promise<string> {
+  if (appToken && appToken.expiresAt > Date.now() + 60_000) return appToken.value;
+  if (tokenPending) return tokenPending;
+  tokenPending = (async () => {
+    const { basic } = credentials();
+    let response: Response;
+    try {
+      response = await fetch(`${ACCOUNTS}/api/token`, {
+        method: "POST",
+        headers: { Authorization: `Basic ${basic}`, "Content-Type": "application/x-www-form-urlencoded" },
+        body: new URLSearchParams({ grant_type: "client_credentials" }),
+        signal: AbortSignal.timeout(8000),
+      });
+    } catch {
+      throw new ApiError(502, "upstream_error", "Spotify's official token service is unreachable.");
+    }
+    if (!response.ok) throw await upstreamError("Spotify app credentials", response);
+    const data = (await response.json()) as { access_token?: string; expires_in?: number };
+    if (!data.access_token) throw new ApiError(502, "upstream_error", "Spotify returned no app access token.");
+    appToken = {
+      value: data.access_token,
+      expiresAt: Date.now() + Math.max(0, data.expires_in ?? 3600) * 1000,
+    };
+    return appToken.value;
+  })().finally(() => { tokenPending = null; });
+  return tokenPending;
+}
+
+const CATALOG_PATH = /^\/v1\/(?:search|tracks\/[A-Za-z0-9]{22}|albums\/[A-Za-z0-9]{22}(?:\/tracks)?|artists\/[A-Za-z0-9]{22}(?:\/(?:top-tracks|albums))?|playlists\/[A-Za-z0-9]{22}(?:\/(?:items|tracks))?|browse\/new-releases)$/;
+
+async function officialCatalog(path: string, params: URLSearchParams): Promise<unknown> {
+  // Keep this a strict, read-only allowlist: the client must never pick an
+  // arbitrary URL or use the server's Spotify app credentials for user data.
+  if (!CATALOG_PATH.test(path)) throw new ApiError(400, "bad_request", "Unsupported Spotify catalogue path.");
+  const url = new URL(path, SPOTIFY_API);
+  url.search = params.toString();
+  for (let attempt = 0; attempt < 2; attempt++) {
+    const token = await spotifyAppToken();
+    let response: Response;
+    try {
+      response = await fetch(url.toString(), {
+        headers: { Authorization: `Bearer ${token}`, Accept: "application/json" },
+        signal: AbortSignal.timeout(10000),
+      });
+    } catch {
+      throw new ApiError(502, "upstream_error", "Spotify's official catalogue is unreachable.");
+    }
+    if (response.status === 401 && attempt === 0) {
+      appToken = null;
+      continue;
+    }
+    if (!response.ok) throw await upstreamError("Spotify official API", response);
+    try {
+      return await response.json();
+    } catch {
+      throw new ApiError(502, "upstream_error", "Spotify's official API returned invalid JSON.");
+    }
+  }
+  throw new ApiError(502, "upstream_error", "Spotify rejected the app token.");
+}
+
+/** oEmbed is public and can still identify a pasted track without app keys. */
+async function publicTrack(path: string): Promise<unknown> {
+  const match = /^\/v1\/tracks\/([A-Za-z0-9]{22})$/.exec(path);
+  if (!match) return null;
+  const id = match[1];
+  const url = new URL("https://open.spotify.com/oembed");
+  url.searchParams.set("url", `https://open.spotify.com/track/${id}`);
+  let response: Response;
+  try {
+    response = await fetch(url, { headers: { Accept: "application/json" }, signal: AbortSignal.timeout(8000) });
+  } catch {
+    return null;
+  }
+  if (!response.ok) return null;
+  try {
+    const data = (await response.json()) as { title?: string; thumbnail_url?: string };
+    if (!data.title) return null;
+    const title = data.title.trim();
+    // Spotify may use "Track by Artist" in oEmbed. If it does not, preserve
+    // the complete title instead of guessing or attributing to a wrong artist.
+    const matchTitle = /^(.*?) by (.+)$/i.exec(title);
+    return {
+      id,
+      name: matchTitle ? matchTitle[1] : title,
+      artists: matchTitle ? [{ id: "", name: matchTitle[2] }] : [],
+      album: data.thumbnail_url ? { id: "", name: "", images: [{ url: data.thumbnail_url }] } : undefined,
+      type: "track",
+      uri: `spotify:track:${id}`,
+      external_urls: { spotify: `https://open.spotify.com/track/${id}` },
+    };
+  } catch {
+    return null;
+  }
+}
+
+export async function catalog(path: string, params: URLSearchParams): Promise<unknown> {
+  const hasAppCredentials = !!(env("SPOTIFY_CLIENT_ID") && env("SPOTIFY_CLIENT_SECRET"));
+  try {
+    const data = await wolfCatalog(path, params);
+    // If just one wolfXspotify search category fails, keep the successful
+    // categories AND fill the missing ones from the official API when possible.
+    if (path === "/v1/search" && hasAppCredentials) {
+      const catalogue = data as Record<string, unknown>;
+      const requested = (params.get("type") ?? "track").split(",");
+      const missing = requested.filter((type) => !Object.hasOwn(catalogue, `${type}s`));
+      if (missing.length) {
+        const options = new URLSearchParams(params);
+        options.set("type", missing.join(","));
+        try {
+          const backup = (await officialCatalog(path, options)) as Record<string, unknown>;
+          return { ...catalogue, ...backup };
+        } catch {
+          // Partial results are better than a whole-page 502.
+          return catalogue;
+        }
+      }
+    }
+    return data;
+  } catch (error) {
+    if (error instanceof ApiError && error.status === 400) throw error;
+    // The public API can time out, rate-limit, or change its JSON format.
+    // A failing upstream must never silently be interpreted as empty results.
+    if (hasAppCredentials) {
+      try {
+        return await officialCatalog(path, params);
+      } catch (officialError) {
+        const reason = officialError instanceof Error ? officialError.message : "Unknown official API error.";
+        throw new ApiError(502, "upstream_error", `Spotify catalogue failed on both services. Official API: ${reason}`);
+      }
+    }
+    const track = await publicTrack(path);
+    if (track) return track;
+    const reason = error instanceof Error ? error.message : "The metadata provider is unavailable.";
+    throw new ApiError(502, "upstream_error",
+      `Spotify's free metadata service is unavailable: ${reason} Add valid SPOTIFY_CLIENT_ID and SPOTIFY_CLIENT_SECRET in Cloudflare Pages to enable the official read-only fallback.`);
+  }
+}
 
 /**
  * Spotify requires the authorization and token-exchange redirect_uri to be the

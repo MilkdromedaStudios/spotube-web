@@ -32,8 +32,13 @@ export async function apiGet<T>(path: string, params: Record<string, string | nu
     /* non-JSON */
   }
   if (!res.ok) {
-    const err = (body as { error?: { code?: string; message?: string } })?.error;
-    throw new ProviderError(err?.message ?? `Request failed (${res.status}).`, err?.code ?? "upstream_error", res.status);
+    const err = (body as { error?: { code?: string; message?: string } } | null)?.error;
+    const message = err?.message ?? (
+      body === null && res.status >= 500
+        ? `The site backend returned HTTP ${res.status} without JSON. Check the Cloudflare Pages Functions deployment/logs; the request may not have reached the music API.`
+        : `Request failed (${res.status}).`
+    );
+    throw new ProviderError(message, err?.code ?? "upstream_error", res.status);
   }
   return body as T;
 }
