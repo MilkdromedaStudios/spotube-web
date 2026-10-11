@@ -42,8 +42,7 @@ export function Sidebar() {
       <div className="rounded-xl bg-surface p-3">
         <Link href="/" className="mb-3 flex items-center gap-2 px-2 text-lg font-bold">
           {/* eslint-disable-next-line @next/next/no-img-element */}
-          <img src="/spotube-logo.png" alt="" className="size-7" />
-          Spotube <span className="text-accent">Web</span>
+          <img src="/brand-wordmark.svg" alt="Spotube Web" className="h-10 w-[190px] max-w-full object-contain object-left" />
         </Link>
         <ul className="flex flex-col">
           {NAV.map(({ href, label, icon: Icon }) => (
