@@ -95,6 +95,19 @@ function SpotifyAccount() {
           <option value="embed">Always use the Spotify embed</option>
         </select>
       </Row>
+      <div className="mt-3 rounded-xl border border-line bg-surface-2 p-4">
+        <p className="text-sm font-semibold">Spotify OAuth callback URL</p>
+        {spotifyRedirectError && <Notice tone="warn">{spotifyRedirectError}</Notice>}
+        {spotifyRedirectUri && (
+          <code className="my-2 block break-all rounded-lg bg-surface px-3 py-2 text-xs">
+            {spotifyRedirectUri}
+          </code>
+        )}
+        <p className="text-xs text-muted">
+          Add this exact URL to your Spotify Developer Dashboard in App Settings, under Redirect URIs, and save.
+          It must match character for character. To use a fixed domain, set SPOTIFY_REDIRECT_URI to the same URL in Cloudflare Pages.
+        </p>
+      </div>
     </>
   );
 }
