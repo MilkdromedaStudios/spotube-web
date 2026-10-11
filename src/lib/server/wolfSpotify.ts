@@ -182,9 +182,7 @@ export async function wolfCatalog(path: string, params: URLSearchParams): Promis
       }
       return [`${type}s`, { items }] as const;
     }));
-    const successes = settled.filter((result): result is PromiseFulfilledResult<readonly [string, { items: unknown[] }]> =>
-      result.status === "fulfilled",
-    );
+    const successes = settled.filter((result) => result.status === "fulfilled");
     if (!successes.length) {
       const failure = settled.find((result): result is PromiseRejectedResult => result.status === "rejected");
       throw failure?.reason ?? new ApiError(502, "upstream_error", "Spotify catalogue search is currently unavailable.");
