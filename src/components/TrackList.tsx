@@ -96,6 +96,14 @@ export function trackMenuItems(
     track.artists[0]?.id
       ? { label: "Go to artist", icon: <Mic2 />, onSelect: () => navigate(pathFor("artist", track.provider, track.artists[0].id!)) }
       : null,
+    track.provider === "spotify"
+      ? {
+          label: "Find a playable version on YouTube",
+          icon: <Play />,
+          onSelect: () =>
+            navigate(`/search?${new URLSearchParams({ q: [track.title, artistNames(track)].filter(Boolean).join(" "), provider: "youtube", type: "tracks" })}`),
+        }
+      : null,
     track.url
       ? { label: "Open on provider site", icon: <ExternalLink />, onSelect: () => window.open(track.url, "_blank", "noopener,noreferrer") }
       : null,
