@@ -10,6 +10,7 @@ import { Page } from "@/components/Page";
 import { TrackList } from "@/components/TrackList";
 import { Button, EmptyState, ErrorState, LoadingState, Notice, Spinner } from "@/components/ui";
 import { searchLibrary } from "@/lib/db/library";
+import { mergeTracksBySong } from "@/lib/mergedSearch";
 import { useDbStatus } from "@/lib/db/db";
 import { providers, useProviderStatuses } from "@/lib/providers";
 import { looksLikeLink } from "@/lib/providers/links";
@@ -42,10 +43,12 @@ function SearchInner() {
   const [input, setInput] = useState(params.get("q") ?? "");
   const q = useDebounced(input.trim(), 450);
   const provParam = params.get("provider");
-  const provider: ProviderId | "library" =
-    provParam === "library" ? "library" : isProviderId(provParam) ? provParam : settings.preferredProvider;
+  const provider: ProviderId | "library" | "merged" =
+    provParam === "merged" ? "merged" : provParam === "library" ? "library" : isProviderId(provParam) ? provParam : settings.preferredProvider;
   const filter = (FILTERS.find((f) => f.id === params.get("type"))?.id ?? "all") as "all" | SearchType;
-  const status = provider === "library" ? null : statuses.find((s) => s.id === provider)!;
+  const status = provider === "library" || provider === "merged" ? null : statuses.find((s) => s.id === provider)!;
+  const readySources = statuses.filter((s) => s.ready).map((s) => s.id);
+  const readyKey = readySources.join(",");
   const isLink = looksLikeLink(q);
   const { open, busy: opening } = useOpenLink();
 
@@ -72,10 +75,16 @@ function SearchInner() {
   const [error, setError] = useState<string>();
   const [local, setLocal] = useState<Track[]>([]);
   const [nonce, setNonce] = useState(0);
+  const [mergeResults, setMergeResults] = useState<Partial<Record<ProviderId, Track[]>>>({});
+  const [mergeErrors, setMergeErrors] = useState<string[]>([]);
+  const [mergeCompleted, setMergeCompleted] = useState(0);
+  const mergedTracks = mergeTracksBySong(readySources.flatMap((s) => mergeResults[s] ?? []), settings.preferredProvider);
+  const mergeMatches = readySources.reduce((count, s) => count + (mergeResults[s]?.length ?? 0), 0);
+  const merging = provider === "merged" && !!q && !isLink && !!readySources.length && mergeCompleted < readySources.length;
 
   const types: SearchType[] = useMemo(() => {
-    const all: SearchType[] = provider === "youtube" ? ["tracks", "playlists", "artists"] : ["tracks", "albums", "artists", "playlists"];
-    return filter === "all" ? all : [filter];
+    const all: SearchType[] = provider === "merged" ? ["tracks"] : provider === "youtube" ? ["tracks", "playlists", "artists"] : ["tracks", "albums", "artists", "playlists"];
+    return provider === "merged" ? ["tracks"] : filter === "all" ? all : [filter];
   }, [filter, provider]);
 
   useEffect(() => {
@@ -93,7 +102,7 @@ function SearchInner() {
     setResults(emptyResults());
     setNextPage(undefined);
     setError(undefined);
-    if (!q || isLink || provider === "library" || !status?.ready) return;
+    if (!q || isLink || provider === "library" || provider === "merged" || !status?.ready) return;
     let alive = true;
     setLoading(true);
     providers[provider]
@@ -111,8 +120,34 @@ function SearchInner() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [q, provider, types, status?.ready, isLink, nonce]);
 
+  // Fetch from every configured and enabled service at once. Show each response
+  // immediately and continue even when another provider fails.
+  useEffect(() => {
+    let alive = true;
+    setMergeResults({});
+    setMergeErrors([]);
+    setMergeCompleted(0);
+    if (provider !== "merged" || !q || isLink || !readySources.length) return;
+
+    for (const source of readySources) {
+      void providers[source].search(q, ["tracks"])
+        .then((response) => {
+          if (alive) setMergeResults((prev) => ({ ...prev, [source]: response.tracks }));
+        })
+        .catch((e: Error) => {
+          if (alive) setMergeErrors((prev) => [...prev, source + ": " + (e.message || "Search failed")]);
+        })
+        .finally(() => {
+          if (alive) setMergeCompleted((n) => n + 1);
+        });
+    }
+    return () => { alive = false; };
+    // The source set is represented by readyKey to avoid restarting on each render.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [provider, q, isLink, readyKey, nonce]);
+
   const loadMore = async () => {
-    if (nextPage === undefined || provider === "library") return;
+    if (nextPage === undefined || provider === "library" || provider === "merged") return;
     setLoadingMore(true);
     try {
       const r = await providers[provider].search(q, types, nextPage);
@@ -135,7 +170,7 @@ function SearchInner() {
   };
 
   const nothing =
-    !loading && !error && q && !isLink && provider !== "library" && status?.ready &&
+    !loading && !error && q && !isLink && provider !== "library" && provider !== "merged" && status?.ready &&
     !results.tracks.length && !results.albums.length && !results.artists.length && !results.playlists.length;
 
   return (
@@ -167,6 +202,14 @@ function SearchInner() {
 
       <div className="flex flex-col gap-3">
         <div className="flex flex-wrap gap-2" role="tablist" aria-label="Source">
+          <button
+            role="tab"
+            aria-selected={provider === "merged"}
+            onClick={() => setParam("provider", "merged")}
+            className={clsx("rounded-full px-4 py-1.5 text-sm font-medium transition-colors", provider === "merged" ? "bg-fg text-bg" : "bg-surface-2 hover:bg-surface-3")}
+          >
+            All sources
+          </button>
           {statuses.map((s) => (
             <button
               key={s.id}
@@ -195,7 +238,7 @@ function SearchInner() {
             Your library
           </button>
         </div>
-        {provider !== "library" && (
+        {provider !== "library" && provider !== "merged" && (
           <div className="flex flex-wrap gap-2" aria-label="Result type">
             {FILTERS.map((f) => (
               <button
@@ -233,6 +276,17 @@ function SearchInner() {
       )}
 
       {status && !status.ready && q && !isLink && <Notice tone="warn">{status.reason}</Notice>}
+      {provider === "merged" && !readySources.length && <Notice tone="warn">Configure and enable at least one music provider in Settings to search across sources.</Notice>}
+      {provider === "merged" && !!q && !isLink && !!readySources.length && (
+        <div className="flex flex-col gap-2 text-sm text-muted">
+          <p>
+            {merging ? "Searching" : "Searched"} {merging ? mergeCompleted + "/" + readySources.length : readySources.length} music sources
+            {merging ? "…" : "."} {mergedTracks.length} unique songs from {mergeMatches} results.
+            {mergeMatches > mergedTracks.length ? " Duplicates hidden; preferred source wins." : ""}
+          </p>
+          {mergeErrors.length > 0 && <Notice tone="warn">Some sources failed: {mergeErrors.join(" · ")}</Notice>}
+        </div>
+      )}
 
       {local.length > 0 && (
         <Section title={provider === "library" ? `In your library (${local.length})` : "In your library"}>
@@ -246,6 +300,14 @@ function SearchInner() {
       {error && <ErrorState title="Search failed" message={error} onRetry={() => setNonce((n) => n + 1)} />}
       {loading && <LoadingState label="Searching…" />}
       {nothing && <EmptyState title={`No results for “${q}”`}>Check the spelling or try another provider.</EmptyState>}
+
+      {provider === "merged" && merging && <LoadingState label="Searching music services…" />}
+      {provider === "merged" && !!q && !isLink && !merging && !!readySources.length && !mergedTracks.length && (
+        <EmptyState title="No songs found">Try another title or enable more music providers in Settings.</EmptyState>
+      )}
+      {provider === "merged" && mergedTracks.length > 0 && (
+        <Section title="Songs from all sources"><TrackList tracks={mergedTracks} /></Section>
+      )}
 
       {results.tracks.length > 0 && (
         <Section title="Songs">
