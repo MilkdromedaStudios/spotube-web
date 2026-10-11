@@ -5,7 +5,8 @@ import { useEffect, useRef, useState } from "react";
 import { HOST_IDS } from "@/lib/player/adapters/types";
 import { currentTrack, usePlayer } from "@/lib/player/engine";
 import { Artwork } from "@/components/Artwork";
-import { PROVIDER_LABELS, type ProviderId } from "@/lib/types";
+import { Spinner } from "@/components/ui";
+import type { ProviderId } from "@/lib/types";
 
 /** Providers whose official player is a visible embed. */
 export const EMBED_PROVIDERS: ProviderId[] = ["youtube", "spotify", "soundcloud"];
@@ -74,6 +75,8 @@ export function MediaStage() {
 
   const visible = !!provider && !!rect;
   const track = usePlayer((s) => currentTrack(s));
+  const status = usePlayer((s) => s.status);
+  const waiting = status === "loading" || status === "buffering";
   return (
     <div
       className={clsx(
@@ -88,12 +91,16 @@ export function MediaStage() {
       }
     >
       {track && (
-        // Shown until the provider's player has loaded (e.g. after restoring a session).
+        // Sits behind the provider's player and shows until that player has loaded over it.
         <div className="absolute inset-0 flex items-center gap-3 p-4 text-sm text-white/70">
           <Artwork src={track.artwork} alt="" className="size-14" />
-          <span>
-            The official {PROVIDER_LABELS[track.provider]} player appears here when playback starts.
-          </span>
+          {waiting || status === "playing" ? (
+            <span className="flex items-center gap-2">
+              <Spinner className="size-4" /> Loading…
+            </span>
+          ) : (
+            <span>{status === "error" ? "Couldn't load this song." : "Press play to start."}</span>
+          )}
         </div>
       )}
       {(Object.keys(HOST_IDS) as ProviderId[])

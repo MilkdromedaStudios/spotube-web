@@ -114,10 +114,9 @@ export function VolumeControl({ className }: { className?: string }) {
   const volume = usePlayer((s) => s.volume);
   const muted = usePlayer((s) => s.muted);
   const canSet = usePlayer((s) => s.canSetVolume);
-  const engine = usePlayer((s) => s.engine);
   const v = muted ? 0 : volume;
   const Icon = v === 0 ? VolumeX : v < 0.5 ? Volume1 : Volume2;
-  const hint = canSet ? undefined : `${engine ?? "This player"} doesn't allow volume control; use your device volume.`;
+  const hint = canSet ? undefined : "Use your device's volume for this song.";
   return (
     <div className={clsx("flex items-center gap-1", className)} title={hint}>
       <IconButton label={muted ? "Unmute (M)" : "Mute (M)"} onClick={toggleMute} disabled={!canSet}>

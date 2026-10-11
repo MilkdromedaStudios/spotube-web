@@ -112,13 +112,13 @@ export class SpotifyEmbedAdapter implements PlaybackAdapter {
     frame.setAttribute("referrerpolicy", "strict-origin-when-cross-origin");
     frame.style.cssText = "width:100%;height:100%;border:0;display:block;";
     frame.addEventListener("error", () =>
-      this.events.onError({ message: "Spotify's embed could not load. Open this track on Spotify.", fatal: false, notice: true }),
+      this.events.onError({ message: "Spotify didn't load. Open the song in Spotify instead.", fatal: false, notice: true }),
     );
     host.appendChild(frame);
     this.fallbackFrame = frame;
     this.events.onState({ status: "paused", positionMs: 0 });
     this.events.onError({
-      message: "Use the Play button inside the Spotify player. Your browser may restrict embedded playback.",
+      message: "Tap play in the Spotify player to start.",
       fatal: false, notice: true,
     });
   }
@@ -231,19 +231,18 @@ export class SpotifyEmbedAdapter implements PlaybackAdapter {
     try {
       const created = await this.ensure(uri, seq);
       if (!created) this.controller!.loadUri(uri);
-      // Never leave the toolbar stuck in "Loading..." when a browser denies autoplay.
-      this.events.onState({ status: "paused", positionMs: opts.startMs });
-      if (opts.autoplay) {
-        // The embed's "ready" event starts the song; this covers embeds that don't send it after loadUri.
-        this.scheduleStart(created ? 3000 : 800);
-        this.nudge = setTimeout(() => {
-          if (!this.playing)
-            this.events.onError({
-              message: "Press Play inside the Spotify widget. If it stays blank, open on Spotify.",
-              fatal: false, notice: true,
-            });
-        }, 8000);
+      if (!opts.autoplay) {
+        this.events.onState({ status: "paused", positionMs: opts.startMs });
+        return;
       }
+      // The embed's "ready" event starts the song; this covers embeds that don't send it after loadUri.
+      this.scheduleStart(created ? 3000 : 800);
+      // The player bar shows "Loading…" until the song starts. If the browser blocks autoplay, it
+      // switches to paused with this message instead of staying on "Loading…".
+      this.nudge = setTimeout(() => {
+        if (!this.playing)
+          this.events.onError({ message: "Tap play in the Spotify player to start.", fatal: false, notice: true });
+      }, 5000);
     } catch {
       if (seq !== this.seq) return;
       // The official iframe needs no JS handshake; it is the final fallback
@@ -269,7 +268,7 @@ export class SpotifyEmbedAdapter implements PlaybackAdapter {
         }
         return;
       }
-      this.events.onError({ message: "Press Play inside the Spotify widget to start the song.", fatal: false, notice: true });
+      this.events.onError({ message: "Tap play in the Spotify player to start.", fatal: false, notice: true });
       return;
     }
     if (!this.controller) return;
@@ -378,8 +377,10 @@ export class SpotifySdkAdapter implements PlaybackAdapter {
         player.addListener("account_error", fail("Full-track Spotify playback needs Spotify Premium"));
         setTimeout(() => reject(new Error("Spotify player timed out.")), 20000);
       });
-      player.addListener("playback_error", ((e: { message: string }) =>
-        this.events.onError({ message: `Spotify playback error: ${e.message}`, fatal: false })) as never);
+      player.addListener("playback_error", ((e: { message: string }) => {
+        console.warn(`[Spotube Web] Spotify playback error: ${e.message}`);
+        this.events.onError({ message: "Spotify had trouble playing this song.", fatal: false });
+      }) as never);
       player.addListener("player_state_changed", ((s: SdkState | null) => this.handle(s)) as never);
       if (!(await player.connect())) throw new Error("Spotify player couldn't connect.");
       return id;

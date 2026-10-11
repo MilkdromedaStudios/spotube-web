@@ -57,12 +57,12 @@ export function getMusicKit(): Promise<MusicKitInstance> {
     const { token } = await apiGet<{ token: string }>("/api/apple/token");
     if (!window.MusicKit) {
       await new Promise<void>((resolve, reject) => {
-        const timer = setTimeout(() => reject(new ProviderError("Apple MusicKit failed to load.", "network")), 20000);
+        const timer = setTimeout(() => reject(new ProviderError("Apple Music couldn't load. Check your connection and try again.", "network")), 20000);
         document.addEventListener("musickitloaded", () => (clearTimeout(timer), resolve()), { once: true });
         const s = document.createElement("script");
         s.src = "https://js-cdn.music.apple.com/musickit/v3/musickit.js";
         s.async = true;
-        s.onerror = () => (clearTimeout(timer), reject(new ProviderError("Apple MusicKit failed to load.", "network")));
+        s.onerror = () => (clearTimeout(timer), reject(new ProviderError("Apple Music couldn't load. Check your connection and try again.", "network")));
         document.head.appendChild(s);
       });
     }
@@ -101,7 +101,7 @@ async function am<T>(path: string, params?: Record<string, unknown>): Promise<T>
   } catch (e) {
     const status = (e as { status?: number })?.status ?? 0;
     throw new ProviderError(
-      status === 404 ? "Apple Music couldn't find that item." : "Apple Music request failed.",
+      status === 404 ? "Apple Music couldn't find that." : "Apple Music isn't responding right now. Try again in a little while.",
       status === 404 ? "not_found" : "upstream_error",
       status,
     );

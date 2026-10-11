@@ -246,7 +246,7 @@ function SearchInner() {
                 onClick={() => setParam("type", f.id)}
                 aria-pressed={filter === f.id}
                 disabled={provider === "youtube" && f.id === "albums"}
-                title={provider === "youtube" && f.id === "albums" ? "The YouTube Data API has no album search" : undefined}
+                title={provider === "youtube" && f.id === "albums" ? "YouTube doesn't offer album search" : undefined}
                 className={clsx(
                   "rounded-full border px-3 py-1 text-xs font-medium disabled:opacity-40",
                   filter === f.id ? "border-accent text-accent" : "border-line text-muted hover:text-fg",
@@ -276,7 +276,7 @@ function SearchInner() {
       )}
 
       {status && !status.ready && q && !isLink && <Notice tone="warn">{status.reason}</Notice>}
-      {provider === "merged" && !readySources.length && <Notice tone="warn">Configure and enable at least one music provider in Settings to search across sources.</Notice>}
+      {provider === "merged" && !readySources.length && <Notice tone="warn">Turn on at least one music service in Settings to search everywhere at once.</Notice>}
       {provider === "merged" && !!q && !isLink && !!readySources.length && (
         <div className="flex flex-col gap-2 text-sm text-muted">
           <p>
@@ -294,16 +294,16 @@ function SearchInner() {
         </Section>
       )}
       {provider === "library" && q && !local.length && dbReady && (
-        <EmptyState title="Nothing in your library matches">Try searching a provider instead.</EmptyState>
+        <EmptyState title="Nothing in your library matches">Try searching a music service instead.</EmptyState>
       )}
 
       {error && <ErrorState title="Search failed" message={error} onRetry={() => setNonce((n) => n + 1)} />}
       {loading && <LoadingState label="Searching…" />}
-      {nothing && <EmptyState title={`No results for “${q}”`}>Check the spelling or try another provider.</EmptyState>}
+      {nothing && <EmptyState title={`No results for “${q}”`}>Check the spelling or try another music service.</EmptyState>}
 
       {provider === "merged" && merging && <LoadingState label="Searching music services…" />}
       {provider === "merged" && !!q && !isLink && !merging && !!readySources.length && !mergedTracks.length && (
-        <EmptyState title="No songs found">Try another title or enable more music providers in Settings.</EmptyState>
+        <EmptyState title="No songs found">Try another title or turn on more music services in Settings.</EmptyState>
       )}
       {provider === "merged" && mergedTracks.length > 0 && (
         <Section title="Songs from all sources"><TrackList tracks={mergedTracks} /></Section>

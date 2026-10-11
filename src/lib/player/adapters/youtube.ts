@@ -51,12 +51,12 @@ export function loadApi(): Promise<YTNamespace> {
 }
 
 const ERRORS: Record<number, { message: string; fatal: boolean }> = {
-  2: { message: "YouTube rejected the video id.", fatal: true },
-  5: { message: "The YouTube player hit a playback error.", fatal: false },
+  2: { message: "This YouTube video can't be found.", fatal: true },
+  5: { message: "YouTube had trouble playing this video.", fatal: false },
   100: { message: "This YouTube video was removed or is private.", fatal: true },
-  101: { message: "The owner doesn't allow this video to be played outside YouTube.", fatal: true },
-  150: { message: "The owner doesn't allow this video to be played outside YouTube.", fatal: true },
-  153: { message: "YouTube refused the embed (missing referrer).", fatal: true },
+  101: { message: "This video can only be played on YouTube.", fatal: true },
+  150: { message: "This video can only be played on YouTube.", fatal: true },
+  153: { message: "YouTube wouldn't play this video here.", fatal: true },
 };
 
 /** Plays through the official YouTube IFrame Player (optionally youtube-nocookie.com). */
@@ -107,7 +107,7 @@ export class YouTubeAdapter implements PlaybackAdapter {
           onStateChange: (e: { data: number }) => this.handleState(e.data),
           onError: (e: { data: number }) => {
             this.stopPolling();
-            this.events.onError(ERRORS[e.data] ?? { message: `YouTube player error ${e.data}.`, fatal: true });
+            this.events.onError(ERRORS[e.data] ?? { message: "YouTube couldn't play this video.", fatal: true });
           },
         },
       });
