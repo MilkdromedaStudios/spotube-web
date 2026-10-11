@@ -9,7 +9,7 @@ import { resolveLink } from "./oembed";
 import { parseTypes } from "./params";
 import { randomToken, seal, unseal } from "./seal";
 import * as soundcloud from "./soundcloud";
-import { SESSION_COOKIE, STATE_COOKIE, authorizeUrl, catalog, exchangeCode, refresh } from "./spotify";
+import { SESSION_COOKIE, STATE_COOKIE, authorizeUrl, catalog, exchangeCode, redirectUri, refresh } from "./spotify";
 import * as youtube from "./youtube";
 
 /**
@@ -26,7 +26,18 @@ const cookieBase = (url: URL) => ({ httpOnly: true, secure: url.protocol === "ht
 
 const get: Record<string, Handler> = {
   /** Which providers this deployment has credentials for. Never returns secrets. */
-  config: async () => json({ providers: providersConfigured() }),
+  config: async (_req, url) => {
+    // The redirect URI is public configuration, not a secret. Expose its exact
+    // value so developers can allowlist it in the Spotify Developer Dashboard.
+    let spotifyRedirectUri: string | null = null;
+    let spotifyRedirectError: string | null = null;
+    try {
+      spotifyRedirectUri = redirectUri(url.origin);
+    } catch (error) {
+      spotifyRedirectError = error instanceof Error ? error.message : "Invalid Spotify redirect URI.";
+    }
+    return json({ providers: providersConfigured(), spotifyRedirectUri, spotifyRedirectError });
+  },
 
   resolve: async (req, url) => {
     sameOrigin(req);
@@ -89,6 +100,16 @@ const get: Record<string, Handler> = {
 
   /** Starts the Spotify authorization-code flow. */
   "spotify/login": async (_req, url) => {
+    const callback = new URL(redirectUri(url.origin));
+    if (callback.origin !== url.origin) {
+      // Preview domains cannot share OAuth state cookies with the production
+      // domain. Start the flow on the canonical host BEFORE setting the cookie.
+      const canonicalLogin = new URL("/api/spotify/login", callback.origin);
+      return new Response(null, {
+        status: 307,
+        headers: { Location: canonicalLogin.toString(), "Cache-Control": "no-store" },
+      });
+    }
     const state = randomToken();
     await seal("probe"); // fail early with a clear message if SESSION_SECRET is missing
     const headers = new Headers({ Location: authorizeUrl(url.origin, state), "Cache-Control": "no-store" });
