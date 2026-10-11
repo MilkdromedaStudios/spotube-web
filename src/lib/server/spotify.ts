@@ -64,7 +64,7 @@ async function spotifyAppToken(): Promise<string> {
   return tokenPending;
 }
 
-const CATALOG_PATH = /^\\/v1\\/(?:search|tracks\\/[A-Za-z0-9]{22}|albums\\/[A-Za-z0-9]{22}(?:\\/tracks)?|artists\\/[A-Za-z0-9]{22}(?:\\/(?:top-tracks|albums))?|playlists\\/[A-Za-z0-9]{22}(?:\\/(?:items|tracks))?|browse\\/new-releases)$/;
+const CATALOG_PATH = /^\/v1\/(?:search|tracks\/[A-Za-z0-9]{22}|albums\/[A-Za-z0-9]{22}(?:\/tracks)?|artists\/[A-Za-z0-9]{22}(?:\/(?:top-tracks|albums))?|playlists\/[A-Za-z0-9]{22}(?:\/(?:items|tracks))?|browse\/new-releases)$/;
 
 async function officialCatalog(path: string, params: URLSearchParams): Promise<unknown> {
   // Keep this a strict, read-only allowlist: the client must never pick an
@@ -99,7 +99,7 @@ async function officialCatalog(path: string, params: URLSearchParams): Promise<u
 
 /** oEmbed is public and can still identify a pasted track without app keys. */
 async function publicTrack(path: string): Promise<unknown> {
-  const match = /^\\/v1\\/tracks\\/([A-Za-z0-9]{22})$/.exec(path);
+  const match = /^\/v1\/tracks\/([A-Za-z0-9]{22})$/.exec(path);
   if (!match) return null;
   const id = match[1];
   const url = new URL("https://open.spotify.com/oembed");
