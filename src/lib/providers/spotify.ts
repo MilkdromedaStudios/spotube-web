@@ -78,8 +78,11 @@ export async function disconnectSpotify() {
 
 /** GET a Spotify Web API path, directly with the user's token or through the catalog proxy. */
 export async function spGet<T>(path: string, params: Record<string, string | number | undefined> = {}): Promise<T> {
-  const userToken = useSpotifyAuth.getState().connected ? await getUserToken() : null;
-  if (!userToken) return apiGet<T>("/api/spotify/catalog", { path, ...params });
+  // Catalogue browsing always uses the public read-only metadata proxy; user
+  // OAuth tokens are reserved for the user's private playlists and SDK playback.
+  if (!path.startsWith("/v1/me/")) return apiGet<T>("/api/spotify/catalog", { path, ...params });
+  const userToken = await getUserToken();
+  if (!userToken) throw new ProviderError("Connect Spotify in Settings to view private account data.", "unauthorized", 401);
   const qs = new URLSearchParams();
   for (const [k, v] of Object.entries(params)) if (v !== undefined) qs.set(k, String(v));
   const doFetch = (t: string) =>
