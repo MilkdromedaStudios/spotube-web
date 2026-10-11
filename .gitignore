@@ -7,5 +7,3 @@ out
 .dev.vars
 *.tsbuildinfo
 next-env.d.ts
-test-results
-playwright-report
