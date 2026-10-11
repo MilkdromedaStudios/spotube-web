@@ -175,7 +175,7 @@ export async function wolfCatalog(path: string, params: URLSearchParams): Promis
     const item = obj(data.album);
     const full = album(item, true);
     if (!match[2]) return full;
-    const tracks = list(obj(full.tracks).items);
+    const tracks = list(obj(obj(full).tracks).items);
     return { items: tracks.slice(offset, offset + limit), next: offset + limit < tracks.length ? "more" : null };
   }
   if ((match = path.match(new RegExp(`^/v1/artists/(${ID})(/top-tracks|/albums)?$`)))) {
