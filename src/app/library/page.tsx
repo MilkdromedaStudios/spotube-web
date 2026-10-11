@@ -208,8 +208,11 @@ function LibraryInner() {
       title="Your Library"
       actions={
         <div className="flex gap-2">
+          <Button variant="outline" size="sm" onClick={() => router.push("/import")}>
+            <Upload className="size-4" /> Import from music services
+          </Button>
           <Button variant="outline" size="sm" onClick={() => file.current?.click()}>
-            <Upload className="size-4" /> Import playlist
+            <Upload className="size-4" /> Import JSON
           </Button>
           <Button variant="primary" size="sm" onClick={create}>
             <Plus className="size-4" /> New playlist
