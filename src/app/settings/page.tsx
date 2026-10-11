@@ -123,6 +123,14 @@ function SpotifyAccount() {
           Add this exact URL to your Spotify Developer Dashboard in App Settings, under Redirect URIs, and save.
           It must match character for character. To use a fixed domain, set SPOTIFY_REDIRECT_URI to the same URL in Cloudflare Pages.
         </p>
+        <a
+          className="mt-2 inline-flex items-center gap-1 text-xs font-medium text-accent hover:underline"
+          href="https://developer.spotify.com/dashboard"
+          target="_blank"
+          rel="noopener noreferrer"
+        >
+          Open Spotify Developer Dashboard <ExternalLink className="size-3" />
+        </a>
       </div>
     </>
   );
