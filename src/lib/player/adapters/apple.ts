@@ -42,8 +42,9 @@ export class AppleMusicAdapter implements PlaybackAdapter {
       if (this.active && music.playbackState === S.playing) this.events.onState({ status: "playing", ...pos() });
     });
     music.addEventListener("mediaPlaybackError", (e) => {
-      if (this.active)
-        this.events.onError({ message: `Apple Music playback error${(e as Error)?.message ? `: ${(e as Error).message}` : ""}.`, fatal: true });
+      if (!this.active) return;
+      console.warn("[Spotube Web] Apple Music playback error:", e);
+      this.events.onError({ message: "Apple Music couldn't play this song.", fatal: true });
     });
     return music;
   }

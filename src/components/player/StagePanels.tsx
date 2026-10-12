@@ -26,7 +26,7 @@ export function StagePanel() {
       {showAdNotices && AD_NOTICE[provider] && <p className="text-xs text-subtle">{AD_NOTICE[provider]}</p>}
       {provider === "spotify" && track?.url && (
         <a className="text-xs text-accent hover:underline" href={track.url} target="_blank" rel="noopener noreferrer">
-          No sound? Press Play inside the Spotify widget or open on Spotify ↗
+          Not playing? Open in Spotify ↗
         </a>
       )}
       <div className="mt-2">
@@ -48,7 +48,7 @@ export function MobileDock() {
       <StageSlot priority={10} className="w-full" style={{ height: stageHeight(provider, "dock", collection) }} />
       {provider === "spotify" && track?.url && (
         <a className="mt-1 block text-center text-xs text-accent hover:underline" href={track.url} target="_blank" rel="noopener noreferrer">
-          Spotify not playing? Open song on Spotify ↗
+          Not playing? Open in Spotify ↗
         </a>
       )}
     </div>

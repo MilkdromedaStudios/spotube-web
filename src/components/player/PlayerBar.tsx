@@ -7,7 +7,7 @@ import { PlayPauseButton, SeekBar, TransportControls, VolumeControl } from "./Co
 import { Artwork } from "@/components/Artwork";
 import { LikeButton } from "@/components/TrackList";
 import { ProviderBadge } from "@/components/ProviderBadge";
-import { IconButton } from "@/components/ui";
+import { IconButton, Spinner } from "@/components/ui";
 import { useLikedKeys } from "@/hooks/useLibrary";
 import { currentTrack, next, setNowPlayingOpen, setQueueOpen, usePlayer } from "@/lib/player/engine";
 import { pathFor } from "@/lib/providers";
@@ -16,9 +16,9 @@ import { artistNames, type ProviderId } from "@/lib/types";
 import { SkipForward } from "lucide-react";
 
 export const AD_NOTICE: Partial<Record<ProviderId, string>> = {
-  youtube: "YouTube may show ads in its player. Spotube Web never blocks or skips them.",
-  soundcloud: "SoundCloud may play ads in its widget. Spotube Web never blocks or skips them.",
-  spotify: "Spotify Free accounts may hear ads in Spotify's player. Spotube Web never blocks or skips them.",
+  youtube: "YouTube may show ads.",
+  soundcloud: "SoundCloud may play ads.",
+  spotify: "Spotify may play ads on free accounts.",
 };
 
 export function AdNotice({ provider, className }: { provider: ProviderId; className?: string }) {
@@ -37,6 +37,9 @@ export function PlayerBar() {
   const track = usePlayer((s) => currentTrack(s));
   const error = usePlayer((s) => s.error);
   const notice = usePlayer((s) => s.notice);
+  const loading = usePlayer((s) => s.status === "loading");
+  /** One short line about what the player is doing, when there's something to say. */
+  const message = error ?? notice ?? (loading ? "Loading…" : undefined);
   const queueOpen = usePlayer((s) => s.queueOpen);
   const position = usePlayer((s) => s.positionMs);
   const duration = usePlayer((s) => s.durationMs);
@@ -60,7 +63,13 @@ export function PlayerBar() {
             <span className="min-w-0">
               <span className="block truncate text-sm font-medium">{track?.title ?? "Nothing playing"}</span>
               <span className="block truncate text-xs text-muted">
-                {error ? <span className="text-danger">{error}</span> : track ? artistNames(track) : "Search or paste a link to start"}
+                {message ? (
+                  <span className={error ? "text-danger" : undefined}>{message}</span>
+                ) : track ? (
+                  artistNames(track)
+                ) : (
+                  "Search or paste a link to start"
+                )}
               </span>
             </span>
           </button>
@@ -108,9 +117,9 @@ export function PlayerBar() {
         <div className="flex flex-col items-center gap-1">
           <TransportControls />
           <SeekBar className="max-w-xl" />
-          {(error || notice) && (
+          {message && (
             <p role="status" className={clsx("flex items-center gap-1 text-xs", error ? "text-danger" : "text-muted")}>
-              <AlertCircle className="size-3" /> {error ?? notice}
+              {loading && !error && !notice ? <Spinner className="size-3" /> : <AlertCircle className="size-3" />} {message}
             </p>
           )}
         </div>

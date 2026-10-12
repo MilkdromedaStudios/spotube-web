@@ -59,7 +59,7 @@ function SpotifyAccount() {
   if (!cfg.spotifyLogin)
     return (
       <p className="py-2 text-sm text-muted">
-        Account connection needs SPOTIFY_CLIENT_ID, SPOTIFY_CLIENT_SECRET and SESSION_SECRET on the server.
+        Connecting a Spotify account isn't set up on this site yet.
       </p>
     );
   return (
@@ -68,7 +68,7 @@ function SpotifyAccount() {
         label="Spotify account"
         description={
           auth.connected
-            ? `Connected${auth.displayName ? ` as ${auth.displayName}` : ""}${auth.product ? ` · ${auth.product === "premium" ? "Premium" : "Free"}` : ""}. The sign-in is kept in an encrypted, HttpOnly cookie, never in IndexedDB.`
+            ? `Connected${auth.displayName ? ` as ${auth.displayName}` : ""}${auth.product ? ` · ${auth.product === "premium" ? "Premium" : "Free"}` : ""}. Your sign-in is stored securely in this browser.`
             : "Optional. Connect to see your Spotify playlists and, with Premium, play full tracks in this tab."
         }
       >
@@ -84,7 +84,7 @@ function SpotifyAccount() {
       </Row>
       <Row
         label="Spotify playback"
-        description="Full tracks need a connected Premium account (Web Playback SDK). Otherwise Spotify's embed plays 30-second previews, or full tracks if you're signed in to Spotify in this browser."
+        description="With Spotify Premium connected, full songs play right here. Otherwise you hear 30-second previews, or full songs if you're signed in at spotify.com in this browser."
       >
         <select
           className={select}
@@ -92,12 +92,13 @@ function SpotifyAccount() {
           onChange={(e) => setSetting("spotifyPlayback", e.target.value as "auto" | "embed")}
           aria-label="Spotify playback"
         >
-          <option value="auto">Web Playback SDK when available</option>
-          <option value="embed">Always use the Spotify embed</option>
+          <option value="auto">Use Premium when connected</option>
+          <option value="embed">Always use Spotify's regular player</option>
         </select>
       </Row>
-      <div className="mt-3 rounded-xl border border-line bg-surface-2 p-4">
-        <p className="text-sm font-semibold">Spotify Connect diagnostics</p>
+      {/* Setup details for whoever runs the site; collapsed so listeners don't have to read them. */}
+      <details className="mt-3 rounded-xl border border-line bg-surface-2 p-4">
+        <summary className="cursor-pointer text-sm font-semibold">Site owner setup</summary>
         <p className="mt-2 text-xs text-muted">Client ID used by this deployment (public, not your Client Secret):</p>
         <code className="my-2 block break-all rounded-lg bg-surface px-3 py-2 text-xs">{spotifyClientId ?? "Not configured"}</code>
         <p className="text-xs text-muted">Compare this Client ID with the app in your Spotify Developer Dashboard. A different ID will cause redirect_uri errors even when that other app has the callback registered.</p>
@@ -136,7 +137,7 @@ function SpotifyAccount() {
         >
           Open Spotify Developer Dashboard <ExternalLink className="size-3" />
         </a>
-      </div>
+      </details>
     </>
   );
 }
@@ -153,7 +154,7 @@ function AppleAccount() {
     <>
       <Row
         label="Apple Music account"
-        description="Optional. Subscribers can authorize MusicKit for full tracks; everyone else hears previews. MusicKit keeps its own sign-in token in this browser."
+        description="Optional. Apple Music subscribers can sign in for full songs; everyone else hears previews."
       >
         <Button
           size="sm"
@@ -262,7 +263,7 @@ function Storage() {
   return (
     <Card id="storage" icon={<Database />} title="Storage & your data">
       <Notice>
-        Your playlists, likes, history, queue and settings are saved in this browser&apos;s <strong>IndexedDB</strong>. There is no
+        Your playlists, likes, history, queue and settings are saved <strong>in this browser</strong>. There is no
         account and no server copy. That means they exist only on this browser and device, they do <strong>not</strong> sync to
         other devices, and they can be removed if you clear site data or the browser frees up space. Export a backup to keep them
         safe or move them.
@@ -309,7 +310,7 @@ function Storage() {
           <HardDrive className="size-4" /> {db.persisted ? "Granted" : "Request"}
         </Button>
       </Row>
-      <Row label="Export everything" description="Playlists (with covers), likes, saved albums and artists, collections, history and settings as one JSON file.">
+      <Row label="Export everything" description="Playlists (with covers), likes, saved albums and artists, collections, history and settings as one backup file.">
         <Button
           size="sm"
           variant="outline"
@@ -441,7 +442,7 @@ function SettingsInner() {
         <Toggle label="Resume long tracks" description="Remember the position in tracks over 10 minutes (mixes, podcasts, live sets)." checked={settings.resumeLongTracks} onChange={(v) => setSetting("resumeLongTracks", v)} />
         <Toggle
           label="Browser and system media controls"
-          description="Show the current song on the lock screen / media hub and use hardware media keys (Media Session API)."
+          description="Show the current song on the lock screen / media hub and use your keyboard or headphone media keys."
           checked={settings.mediaSession}
           onChange={(v) => setSetting("mediaSession", v)}
         />
@@ -449,16 +450,15 @@ function SettingsInner() {
 
       <Card id="privacy" icon={<Shield />} title="Privacy & ads">
         <Notice>
-          Spotube Web shows no ads and runs no analytics, trackers or third-party cookies of its own. A strict Content Security Policy
-          lets the browser load scripts and frames only from the official YouTube, Spotify, SoundCloud and Apple Music players, so other
-          third-party scripts are blocked. Provider SDKs load only when you use that provider. <br />
+          Spotube Web shows no ads and doesn&apos;t track you. The only outside players it loads are the official YouTube, Spotify,
+          SoundCloud and Apple Music ones, and each loads only when you play something from it. <br />
           <br />
-          External services may show their own ads <strong>inside their official players</strong> (for example YouTube, SoundCloud and
-          Spotify Free). Spotube Web does not block, skip or hide those ads, because that would break the providers&apos; terms.
+          Those players may show their own ads <strong>inside the player</strong> (for example YouTube, SoundCloud and Spotify Free).
+          Spotube Web doesn&apos;t block or skip them, because that would break the services&apos; rules.
         </Notice>
         <Toggle
           label="YouTube privacy-enhanced mode"
-          description="Embed YouTube from youtube-nocookie.com, which doesn't store cookies until you play a video."
+          description="Uses YouTube's privacy mode, which doesn't store cookies until you play a video."
           checked={settings.youtubePrivacyMode}
           onChange={(v) => setSetting("youtubePrivacyMode", v)}
         />

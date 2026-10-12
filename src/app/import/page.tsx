@@ -75,7 +75,7 @@ export default function ImportPlaylistsPage() {
       return;
     }
     if (raw.length > 10) {
-      setErrors(["Load up to 10 playlists at a time to avoid provider API limits."]);
+      setErrors(["Load up to 10 playlists at a time."]);
       return;
     }
     setLoading(true);
@@ -349,8 +349,8 @@ export default function ImportPlaylistsPage() {
           </div>
         )}
         <p className="text-xs text-muted">
-          This creates local copies in IndexedDB. It does not move your streaming account, bypass provider restrictions,
-          sync future playlist changes, or download music. You can still import Spotube JSON backups from Your Library.
+          This saves copies of your playlists in this browser. It doesn&apos;t change your music accounts, keep the copies in sync,
+          or download music. You can still import Spotube backup files from Your Library.
         </p>
       </div>
     </Page>

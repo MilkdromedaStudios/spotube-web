@@ -103,9 +103,8 @@ export default function HomePage() {
 
       {!anyReady && (
         <Notice>
-          <Sparkles className="mr-1 inline size-4" /> No music provider has search enabled on this deployment yet, so recommendations
-          are hidden. You can still paste links above, and build playlists. The site owner can add API keys as described in the
-          README; see <Link href="/settings#providers" className="underline">Settings → Music providers</Link> for status.
+          <Sparkles className="mr-1 inline size-4" /> Search and recommendations aren&apos;t available on this site yet. You can still
+          paste a song or playlist link above and build playlists.
         </Notice>
       )}
 
@@ -161,13 +160,13 @@ export default function HomePage() {
       {recent?.length === 0 && playlists?.length === 0 && (
         <div className="grid gap-3 sm:grid-cols-3">
           <Tip icon={<ListMusic />} title="Make a playlist">
-            Playlists live in this browser’s IndexedDB. No account needed.
+            Playlists are saved in this browser. No account needed.
           </Tip>
           <Tip icon={<Clock />} title="Pick up where you left off">
             Your queue, volume and position are restored when you come back.
           </Tip>
           <Tip icon={<Heart />} title="Back it up">
-            Export everything to a JSON file in Settings → Storage.
+            Export everything to a backup file in Settings → Storage.
           </Tip>
         </div>
       )}

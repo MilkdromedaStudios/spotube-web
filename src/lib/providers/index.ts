@@ -30,8 +30,8 @@ export function useProviderStatuses(): ProviderStatus[] {
     const configured = config.providers[id];
     let reason: string | undefined;
     if (!enabled) reason = `${PROVIDER_LABELS[id]} is turned off in Settings → Music providers.`;
-    else if (!config.loaded) reason = "Checking configuration…";
-    else if (config.error) reason = `Couldn't load server configuration: ${config.error}`;
+    else if (!config.loaded) reason = "Loading…";
+    else if (config.error) reason = "Couldn't connect to the site. Check your connection and reload the page.";
     else if (!configured) reason = CONFIG_HINT[id];
     return { id, label: PROVIDER_LABELS[id], enabled, configured, ready: enabled && configured, reason };
   });

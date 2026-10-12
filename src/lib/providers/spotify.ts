@@ -106,9 +106,10 @@ export async function spGet<T>(path: string, params: Record<string, string | num
     } catch {
       /* ignore */
     }
-    if (res.status === 429) throw new ProviderError("Spotify rate limit reached. Try again shortly.", "rate_limited", 429);
-    if (res.status === 404) throw new ProviderError("Spotify couldn't find that item.", "not_found", 404);
-    throw new ProviderError(`Spotify error (${res.status})${msg ? `: ${msg}` : ""}`, "upstream_error", res.status);
+    console.warn(`[Spotube Web] Spotify ${path} failed (${res.status}): ${msg}`);
+    if (res.status === 429) throw new ProviderError("Spotify is busy right now. Try again in a minute.", "rate_limited", 429);
+    if (res.status === 404) throw new ProviderError("Spotify couldn't find that.", "not_found", 404);
+    throw new ProviderError("Spotify isn't responding right now. Try again in a little while.", "upstream_error", res.status);
   }
   return (await res.json()) as T;
 }

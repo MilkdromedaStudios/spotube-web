@@ -189,8 +189,8 @@ function onAdapterState(s: AdapterState) {
 function onAdapterError(e: AdapterError) {
   const track = currentTrack();
   if (e.notice) {
+    // Shown in the player bar; a toast on top of that would only repeat it.
     set({ notice: e.message, status: "paused" });
-    toast.info(e.message);
     return;
   }
   if (!e.fatal && retries < 1 && track) {
@@ -202,7 +202,8 @@ function onAdapterError(e: AdapterError) {
   }
   // Spotify SDK isn't usable for this account: fall back to the embed and retry once.
   if (current instanceof SpotifySdkAdapter && current.unavailable && track) {
-    toast.info(`${current.unavailable}. Using the Spotify embed instead.`);
+    console.warn(`[Spotube Web] ${current.unavailable}`);
+    toast.info("Playing with Spotify's regular player instead.");
     void select(get().index, { autoplay: true, startMs: 0 });
     return;
   }
@@ -279,7 +280,11 @@ async function select(index: number, opts: { autoplay: boolean; startMs?: number
     await adapter.load(track, { autoplay: opts.autoplay, startMs });
   } catch (e) {
     if (seq !== loadSeq) return;
-    onAdapterError({ message: (e as Error).message || `${PROVIDER_LABELS[track.provider]} player failed to load.`, fatal: true });
+    console.warn(`[Spotube Web] ${PROVIDER_LABELS[track.provider]} player failed to load:`, e);
+    onAdapterError({
+      message: `${PROVIDER_LABELS[track.provider]} didn't load. Check your connection, or turn off ad blockers for this site, and try again.`,
+      fatal: true,
+    });
   }
 }
 

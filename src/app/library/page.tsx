@@ -213,7 +213,7 @@ function LibraryInner() {
             <Upload className="size-4" /> Import from music services
           </Button>
           <Button variant="outline" size="sm" onClick={() => file.current?.click()}>
-            <Upload className="size-4" /> Import JSON
+            <Upload className="size-4" /> Import a file
           </Button>
           <Button variant="primary" size="sm" onClick={create}>
             <Plus className="size-4" /> New playlist

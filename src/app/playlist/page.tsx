@@ -129,7 +129,7 @@ function AddSongs({ playlistId, existing }: { playlistId: string; existing: Set<
         </Button>
       </form>
       {!ready.length && (
-        <p className="text-xs text-muted">No provider search is configured, so only your library is searchable. You can also paste links on the Home page.</p>
+        <p className="text-xs text-muted">Only songs in your library can be searched here right now. You can also paste links on the Home page.</p>
       )}
       {loading && <LoadingState label="Searching…" />}
       {error && <ErrorState message={error.message} />}
@@ -247,7 +247,7 @@ function PlaylistView({ id }: { id: string }) {
                 { label: "Choose cover image", icon: <ImagePlus />, onSelect: () => file.current?.click() },
                 playlist.artwork ? { label: "Remove cover image", icon: <X />, onSelect: () => void updatePlaylist(playlist.id, { artwork: undefined }) } : null,
                 {
-                  label: "Export as JSON",
+                  label: "Export as a file",
                   icon: <Download />,
                   onSelect: async () => {
                     downloadJson(`${safeFilename(playlist.name)}.spotube-playlist.json`, await exportPlaylist(playlist.id));
