@@ -1,0 +1,620 @@
+diff --git a/README.md b/README.md
+index 6b45fa4..2075ff5 100644
+--- a/README.md
++++ b/README.md
+@@ -3,7 +3,7 @@
+ 
+ # Spotube Web
+ 
+-An ad-free, account-free music player for the browser. It searches YouTube, Spotify and Apple Music using provider integrations (Spotify
++An ad-free, account-free music player for the browser. It searches YouTube, Spotify, SoundCloud and Apple Music using provider integrations (Spotify
+ catalogue metadata via the public third-party wolfXspotify API), plays through official players,
+ and keeps your library in your own browser (IndexedDB).
+ 
+@@ -26,6 +26,7 @@ Function for `/api`.
+ | *(none)* | Spotify public catalogue search and playlist/album metadata via wolfXspotify (no key required) |
+ | `SPOTIFY_CLIENT_ID`, `SPOTIFY_CLIENT_SECRET` | Optional Spotify account sign-in and Premium SDK playback; redirect URI: `https://<your-domain>/api/spotify/callback` |
+ | `SESSION_SECRET` | Spotify sign-in (32+ random characters, `openssl rand -hex 32`) |
++| `SOUNDCLOUD_CLIENT_ID`, `SOUNDCLOUD_CLIENT_SECRET` | SoundCloud search |
+ | `APPLE_MUSIC_TEAM_ID`, `APPLE_MUSIC_KEY_ID`, `APPLE_MUSIC_PRIVATE_KEY` | Apple Music (MusicKit key, whole .p8 contents) |
+ | `ALLOWED_ORIGINS`, `YOUTUBE_REGION_CODE`, `SPOTIFY_REDIRECT_URI` | Optional |
+ 
+@@ -81,5 +82,5 @@ npm run preview   # build and serve exactly like Cloudflare Pages
+ ## License
+ 
+ BSD-4-Clause, same as Spotube. Copyright (c) 2025 Kingkor Roy Tirtho. This product includes software developed by Kingkor Roy
+-Tirtho. See [LICENSE](LICENSE). YouTube, Spotify and Apple Music are trademarks of their owners; this project is not
++Tirtho. See [LICENSE](LICENSE). YouTube, Spotify, SoundCloud and Apple Music are trademarks of their owners; this project is not
+ affiliated with them.
+diff --git a/public/_headers b/public/_headers
+index 5bcced4..6aa4082 100644
+--- a/public/_headers
++++ b/public/_headers
+@@ -6,7 +6,7 @@
+ # script are blocked by the browser. Ads that providers serve inside their own
+ # players are not touched. YouTube embeds need a referrer, so the origin is sent.
+ /*
+-  Content-Security-Policy: default-src 'self'; script-src 'self' 'unsafe-inline' https://www.youtube.com https://s.ytimg.com https://open.spotify.com https://embed-cdn.spotifycdn.com https://sdk.scdn.co https://js-cdn.music.apple.com; style-src 'self' 'unsafe-inline'; img-src 'self' data: blob: https:; font-src 'self' data:; connect-src 'self' https://api.spotify.com https://*.spotify.com wss://*.spotify.com https://*.scdn.co https://*.spotifycdn.com https://api.music.apple.com https://*.apple.com https://*.itunes.apple.com https://*.mzstatic.com; media-src 'self' data: blob: https://*.scdn.co https://*.spotifycdn.com https://*.apple.com https://*.itunes.apple.com https://*.mzstatic.com; frame-src https://www.youtube.com https://www.youtube-nocookie.com https://open.spotify.com https://sdk.scdn.co https://*.apple.com; worker-src 'self' blob:; object-src 'none'; base-uri 'self'; form-action 'self' https://accounts.spotify.com; frame-ancestors 'none'; upgrade-insecure-requests
++  Content-Security-Policy: default-src 'self'; script-src 'self' 'unsafe-inline' https://www.youtube.com https://s.ytimg.com https://w.soundcloud.com https://open.spotify.com https://embed-cdn.spotifycdn.com https://sdk.scdn.co https://js-cdn.music.apple.com; style-src 'self' 'unsafe-inline'; img-src 'self' data: blob: https:; font-src 'self' data:; connect-src 'self' https://api.spotify.com https://*.spotify.com wss://*.spotify.com https://*.scdn.co https://*.spotifycdn.com https://api.music.apple.com https://*.apple.com https://*.itunes.apple.com https://*.mzstatic.com; media-src 'self' data: blob: https://*.scdn.co https://*.spotifycdn.com https://*.apple.com https://*.itunes.apple.com https://*.mzstatic.com; frame-src https://www.youtube.com https://www.youtube-nocookie.com https://w.soundcloud.com https://open.spotify.com https://sdk.scdn.co https://*.apple.com; worker-src 'self' blob:; object-src 'none'; base-uri 'self'; form-action 'self' https://accounts.spotify.com; frame-ancestors 'none'; upgrade-insecure-requests
+   Referrer-Policy: strict-origin-when-cross-origin
+   X-Content-Type-Options: nosniff
+   Permissions-Policy: camera=(), microphone=(), geolocation=(), payment=(), usb=(), browsing-topics=(), interest-cohort=()
+diff --git a/src/app/import/page.tsx b/src/app/import/page.tsx
+index e545858..09bc5e3 100644
+--- a/src/app/import/page.tsx
++++ b/src/app/import/page.tsx
+@@ -131,7 +131,15 @@ export default function ImportPlaylistsPage() {
+         continue;
+       }
+       try {
+-        const id = parsed.id;
++        // SoundCloud share links use a permalink; resolve it to the numeric playlist ID.
++        let id = parsed.id;
++        if (parsed.provider === "soundcloud") {
++          const resolved = await resolveLink(parsed.url);
++          if (resolved.kind !== "playlist" || resolved.provider !== "soundcloud") {
++            throw new Error("This link is not a SoundCloud playlist.");
++          }
++          id = resolved.id;
++        }
+         const key = parsed.provider + ":" + id;
+         if (visited.has(key)) continue;
+         visited.add(key);
+@@ -203,7 +211,7 @@ export default function ImportPlaylistsPage() {
+         <section className="flex flex-col gap-3 rounded-2xl border border-line p-5">
+           <h2 className="flex items-center gap-2 text-lg font-semibold"><Link2 className="size-5" /> Import from music services</h2>
+           <p className="text-sm text-muted">
+-            Paste public or accessible Spotify, YouTube / YouTube Music or Apple Music playlist links.
++            Paste public or accessible Spotify, YouTube / YouTube Music, SoundCloud, or Apple Music playlist links.
+             Add one link per line, up to 10 at a time. We copy song information, not audio files.
+           </p>
+           <label htmlFor="playlist-links" className="text-sm font-medium">Playlist links</label>
+diff --git a/src/app/layout.tsx b/src/app/layout.tsx
+index bbbbb2a..5162114 100644
+--- a/src/app/layout.tsx
++++ b/src/app/layout.tsx
+@@ -5,7 +5,7 @@ import { AppShell } from "@/components/shell/AppShell";
+ export const metadata: Metadata = {
+   title: { default: "Spotube Web", template: "%s · Spotube Web" },
+   description:
+-    "An open-source, ad-free web music player based on Spotube. Search YouTube, Spotify and Apple Music and keep your library in your own browser.",
++    "An open-source, ad-free web music player based on Spotube. Search YouTube, Spotify, SoundCloud and Apple Music and keep your library in your own browser.",
+   applicationName: "Spotube Web",
+   manifest: "/manifest.webmanifest",
+   icons: { icon: [{ url: "/brand-icon.svg", type: "image/svg+xml" }], apple: "/brand-icon.svg" },
+diff --git a/src/app/licenses/page.tsx b/src/app/licenses/page.tsx
+index 54e612c..56a6d51 100644
+--- a/src/app/licenses/page.tsx
++++ b/src/app/licenses/page.tsx
+@@ -23,7 +23,7 @@ export default function LicensesPage() {
+         </p>
+         <iframe title="BSD-4-Clause license" src="/LICENSE.txt" className="h-[28rem] w-full rounded-xl border border-line bg-white" />
+         <p>
+-          YouTube, Spotify and Apple Music are trademarks of their respective owners. Spotube Web uses their official
++          YouTube, Spotify, SoundCloud and Apple Music are trademarks of their respective owners. Spotube Web uses their official
+           APIs and players and is not affiliated with them.
+         </p>
+         <Link href="/settings#about" className="underline">
+diff --git a/src/app/settings/page.tsx b/src/app/settings/page.tsx
+index d7d61c2..7c5a9d5 100644
+--- a/src/app/settings/page.tsx
++++ b/src/app/settings/page.tsx
+@@ -461,11 +461,11 @@ function SettingsInner() {
+ 
+       <Card id="privacy" icon={<Shield />} title="Privacy & ads">
+         <Notice>
+-          Spotube Web shows no ads and doesn&apos;t track you. The only outside players it loads are the official YouTube, Spotify
+-          and Apple Music ones. Spotify&apos;s and YouTube&apos;s load in the background when you open the site so songs start
++          Spotube Web shows no ads and doesn&apos;t track you. The only outside players it loads are the official YouTube, Spotify,
++          SoundCloud and Apple Music ones. Spotify&apos;s and YouTube&apos;s load in the background when you open the site so songs start
+           faster; you can turn that off under Playback. <br />
+           <br />
+-          Those players may show their own ads <strong>inside the player</strong> (for example YouTube and Spotify Free).
++          Those players may show their own ads <strong>inside the player</strong> (for example YouTube, SoundCloud and Spotify Free).
+           Spotube Web doesn&apos;t block or skip them, because that would break the services&apos; rules.
+         </Notice>
+         <Toggle
+@@ -545,7 +545,7 @@ function SettingsInner() {
+           </p>
+           <p className="mt-2">
+             Copyright (c) 2025 Kingkor Roy Tirtho. All rights reserved. Distributed under the BSD-4-Clause License. Spotube Web is not
+-            affiliated with or endorsed by YouTube, Spotify or Apple.
++            affiliated with or endorsed by YouTube, Spotify, SoundCloud or Apple.
+           </p>
+           <p className="mt-2">
+             <Link href="/licenses" className="underline">
+diff --git a/src/components/LinkPlayer.tsx b/src/components/LinkPlayer.tsx
+index 0205774..0500f98 100644
+--- a/src/components/LinkPlayer.tsx
++++ b/src/components/LinkPlayer.tsx
+@@ -12,7 +12,7 @@ import { savePlaylistLink } from "@/lib/savePlaylistLink";
+ import { toast } from "@/lib/toast";
+ 
+ /**
+- * Plays any YouTube / YouTube Music / Spotify / Apple Music share link.
++ * Plays any YouTube / YouTube Music / Spotify / SoundCloud / Apple Music share link.
+  * Playlist and album links are saved to the library first, then played.
+  */
+ export function useOpenLink() {
+@@ -68,7 +68,7 @@ export function LinkPlayer() {
+         <input
+           value={url}
+           onChange={(e) => setUrl(e.target.value)}
+-          placeholder="Paste a song or playlist link from YouTube, YouTube Music, Spotify or Apple Music"
++          placeholder="Paste a song or playlist link from YouTube, YouTube Music, Spotify, SoundCloud or Apple Music"
+           className="h-10 w-full bg-transparent text-sm outline-none placeholder:text-subtle"
+           inputMode="url"
+         />
+diff --git a/src/components/ProviderBadge.tsx b/src/components/ProviderBadge.tsx
+index 43551e1..59bab41 100644
+--- a/src/components/ProviderBadge.tsx
++++ b/src/components/ProviderBadge.tsx
+@@ -4,10 +4,11 @@ import { providerLabel, type ProviderId } from "@/lib/types";
+ const STYLES: Record<ProviderId, string> = {
+   youtube: "bg-red-500/15 text-red-400",
+   spotify: "bg-green-500/15 text-green-400",
++  soundcloud: "bg-orange-500/15 text-orange-400",
+   apple: "bg-pink-500/15 text-pink-400",
+ };
+ 
+-const SHORT: Record<ProviderId, string> = { youtube: "YT", spotify: "SP", apple: "AM" };
++const SHORT: Record<ProviderId, string> = { youtube: "YT", spotify: "SP", soundcloud: "SC", apple: "AM" };
+ 
+ export function ProviderBadge({ provider, full, className }: { provider: ProviderId; full?: boolean; className?: string }) {
+   // Songs saved from a parked service (see disabled-providers/) get a plain grey badge.
+diff --git a/src/components/player/MediaStage.tsx b/src/components/player/MediaStage.tsx
+index 5406db9..37d1b98 100644
+--- a/src/components/player/MediaStage.tsx
++++ b/src/components/player/MediaStage.tsx
+@@ -9,7 +9,7 @@ import { Spinner } from "@/components/ui";
+ import type { ProviderId } from "@/lib/types";
+ 
+ /** Providers whose official player is a visible embed. */
+-export const EMBED_PROVIDERS: ProviderId[] = ["youtube", "spotify"];
++export const EMBED_PROVIDERS: ProviderId[] = ["youtube", "spotify", "soundcloud"];
+ 
+ export function useStageProvider(): ProviderId | null {
+   return usePlayer((s) => {
+@@ -24,6 +24,7 @@ export function stageHeight(provider: ProviderId | null, place: "panel" | "dock"
+   // Spotify's compact 80px embed is suitable for tracks only. Playlist, album
+   // and artist embeds need their full player height so the Play control is visible.
+   if (provider === "spotify") return collection ? 352 : place === "dock" ? 80 : 152;
++  if (provider === "soundcloud") return 166;
+   return place === "dock" ? 200 : 0; // youtube uses aspect-ratio in panel/full
+ }
+ 
+diff --git a/src/components/player/PlayerBar.tsx b/src/components/player/PlayerBar.tsx
+index b1616ab..30f0bd6 100644
+--- a/src/components/player/PlayerBar.tsx
++++ b/src/components/player/PlayerBar.tsx
+@@ -17,6 +17,7 @@ import { SkipForward } from "lucide-react";
+ 
+ export const AD_NOTICE: Partial<Record<ProviderId, string>> = {
+   youtube: "YouTube may show ads.",
++  soundcloud: "SoundCloud may play ads.",
+   spotify: "Spotify may play ads on free accounts.",
+ };
+ 
+diff --git a/src/lib/collections.ts b/src/lib/collections.ts
+index 4e226df..4c7c936 100644
+--- a/src/lib/collections.ts
++++ b/src/lib/collections.ts
+@@ -5,11 +5,12 @@ export type CollectionKind = "album" | "playlist" | "artist";
+ /**
+  * A whole album, playlist or artist saved as one item and played inside the
+  * provider's own embedded player, which shows and steps through its songs.
+- * This is how Spotify links work on sites without API keys.
++ * This is how Spotify and SoundCloud links work on sites without API keys.
+  */
+ export function collectionKind(t: Pick<Track, "provider" | "playbackRef">): CollectionKind | null {
+   const ref = t.playbackRef ?? "";
+   if (t.provider === "spotify") return (/^spotify:(album|playlist|artist):/.exec(ref)?.[1] as CollectionKind) ?? null;
+   if (t.provider === "youtube" && /^playlist:[A-Za-z0-9_-]+$/.test(ref)) return "playlist";
++  if (t.provider === "soundcloud" && /^https:\/\/api\.soundcloud\.com\/playlists\/\d+$/.test(ref)) return "playlist";
+   return null;
+ }
+diff --git a/src/lib/player/adapters/types.ts b/src/lib/player/adapters/types.ts
+index 028a337..4b7eb84 100644
+--- a/src/lib/player/adapters/types.ts
++++ b/src/lib/player/adapters/types.ts
+@@ -52,6 +52,7 @@ export interface PlaybackAdapter {
+ export const HOST_IDS: Record<ProviderId, string> = {
+   youtube: "media-stage-youtube",
+   spotify: "media-stage-spotify",
++  soundcloud: "media-stage-soundcloud",
+   apple: "media-stage-apple",
+ };
+ 
+diff --git a/src/lib/player/engine.ts b/src/lib/player/engine.ts
+index 9b5d9a1..e829831 100644
+--- a/src/lib/player/engine.ts
++++ b/src/lib/player/engine.ts
+@@ -2,6 +2,7 @@
+ 
+ import { create } from "zustand";
+ import { AppleMusicAdapter } from "./adapters/apple";
++import { SoundCloudAdapter } from "./adapters/soundcloud";
+ import { preloadSpotifyEmbed, SpotifyEmbedAdapter, SpotifySdkAdapter } from "./adapters/spotify";
+ import type { AdapterError, AdapterState, PlaybackAdapter } from "./adapters/types";
+ import { loadApi as loadYouTubeApi, YouTubeAdapter } from "./adapters/youtube";
+@@ -91,6 +92,7 @@ function make(kind: string): PlaybackAdapter {
+     onError: (e: AdapterError) => a === current && onAdapterError(e),
+   };
+   if (kind === "youtube") a = new YouTubeAdapter(events);
++  else if (kind === "soundcloud") a = new SoundCloudAdapter(events);
+   else if (kind === "spotify-sdk") a = new SpotifySdkAdapter(events);
+   else if (kind === "spotify-embed") a = new SpotifyEmbedAdapter(events);
+   else a = new AppleMusicAdapter(events);
+diff --git a/src/lib/player/expand.ts b/src/lib/player/expand.ts
+index ec42a29..4fd99c6 100644
+--- a/src/lib/player/expand.ts
++++ b/src/lib/player/expand.ts
+@@ -1,19 +1,22 @@
+ "use client";
+ 
+ import { loadApi, type YTPlayer } from "./adapters/youtube";
++import { loadScript } from "./adapters/types";
+ import { collectionKind } from "@/lib/collections";
+ import { resolveLink } from "@/lib/providers";
++import { scTrackToTrack, type ScTrack } from "@/lib/providers/mappers/soundcloud";
+ import { getSettings } from "@/lib/settings";
+ import type { Track } from "@/lib/types";
+ 
+ /**
+- * Lists the songs of a YouTube playlist without API keys by
++ * Lists the songs of a YouTube playlist or SoundCloud set without API keys by
+  * asking the provider's official player, which is loaded off-screen and never
+  * plays. Spotify's embed has no such call, so Spotify playlists stay one item.
+  */
+ export async function expandCollection(item: Track): Promise<Track[] | null> {
+   if (collectionKind(item) !== "playlist") return null;
+   if (item.provider === "youtube") return youtubeSongs((item.playbackRef ?? "").replace(/^playlist:/, ""));
++  if (item.provider === "soundcloud" && item.playbackRef) return soundcloudSongs(item.playbackRef);
+   return null;
+ }
+ 
+@@ -79,6 +82,44 @@ async function youtubeSongs(list: string): Promise<Track[]> {
+   }
+ }
+ 
++interface ScWidgetLite {
++  bind(event: string, cb: () => void): void;
++  getSounds(cb: (sounds: Partial<ScTrack>[]) => void): void;
++}
++
++async function soundcloudSongs(url: string): Promise<Track[]> {
++  await loadScript("https://w.soundcloud.com/player/api.js");
++  const box = offscreen();
++  const iframe = document.createElement("iframe");
++  iframe.title = "SoundCloud playlist reader";
++  iframe.width = "320";
++  iframe.height = "180";
++  iframe.src = `https://w.soundcloud.com/player/?${new URLSearchParams({ url, auto_play: "false", visual: "false" })}`;
++  box.appendChild(iframe);
++  try {
++    const SC = window.SC as unknown as { Widget: ((el: HTMLIFrameElement) => ScWidgetLite) & { Events: Record<string, string> } };
++    const w = SC.Widget(iframe);
++    await new Promise<void>((resolve, reject) => {
++      const timer = setTimeout(() => reject(new Error("SoundCloud didn't load the playlist.")), TIMEOUT_MS);
++      w.bind(SC.Widget.Events.READY, () => (clearTimeout(timer), resolve()));
++    });
++    const read = () => new Promise<Partial<ScTrack>[]>((resolve) => w.getSounds(resolve));
++    // The widget fills in song details in batches, so read again until every song has a title.
++    let sounds = await read();
++    for (let i = 0; i < 10 && sounds.some((s) => !s.title); i++) {
++      await new Promise((r) => setTimeout(r, 500));
++      sounds = await read();
++    }
++    return sounds
++      .filter((s): s is ScTrack => !!s.id && !!s.title)
++      .slice(0, MAX_SONGS)
++      .map(scTrackToTrack)
++      .filter((t): t is Track => !!t);
++  } finally {
++    box.remove();
++  }
++}
++
+ async function mapLimit<T, R>(items: T[], limit: number, fn: (item: T) => Promise<R>): Promise<R[]> {
+   const out = new Array<R>(items.length);
+   let next = 0;
+diff --git a/src/lib/providers/api.ts b/src/lib/providers/api.ts
+index ef07613..bb40414 100644
+--- a/src/lib/providers/api.ts
++++ b/src/lib/providers/api.ts
+@@ -18,6 +18,7 @@ function serviceFor(path: string, params: Record<string, string | number | undef
+   const target = path === "/api/resolve" ? String(params.url ?? "") : path;
+   if (/spotify/i.test(target)) return "Spotify";
+   if (/youtu/i.test(target)) return "YouTube";
++  if (/soundcloud/i.test(target)) return "SoundCloud";
+   if (/apple/i.test(target)) return "Apple Music";
+   return path === "/api/config" ? "This site" : "The music service";
+ }
+@@ -76,6 +77,7 @@ export interface ServerConfig {
+   youtube: boolean;
+   spotify: boolean;
+   spotifyLogin: boolean;
++  soundcloud: boolean;
+   apple: boolean;
+ }
+ 
+@@ -92,7 +94,7 @@ interface ConfigState {
+ 
+ export const useServerConfig = create<ConfigState>((set) => ({
+   loaded: false,
+-  providers: { youtube: false, spotify: false, spotifyLogin: false, apple: false },
++  providers: { youtube: false, spotify: false, spotifyLogin: false, soundcloud: false, apple: false },
+   load: async () => {
+     try {
+       const { providers, spotifyRedirectUri, spotifyRedirectError, spotifyClientId } = await apiGet<{
+@@ -114,5 +116,6 @@ export const configuredFor = (p: ProviderId, c: ServerConfig) => c[p];
+ export const CONFIG_HINT: Record<ProviderId, string> = {
+   youtube: "YouTube search isn't available on this site yet. You can still paste a YouTube link to play it.",
+   spotify: "Spotify search isn't available right now. You can still paste a Spotify link to play it.",
++  soundcloud: "SoundCloud search isn't available on this site yet. You can still paste a SoundCloud link to play it.",
+   apple: "Apple Music isn't available on this site yet.",
+ };
+diff --git a/src/lib/providers/index.ts b/src/lib/providers/index.ts
+index 958fb99..dff5812 100644
+--- a/src/lib/providers/index.ts
++++ b/src/lib/providers/index.ts
+@@ -3,13 +3,14 @@
+ import { apiGet, CONFIG_HINT, ProviderError, useServerConfig } from "./api";
+ import { apple, appleSong } from "./apple";
+ import { parseMusicLink, type LinkKind } from "./links";
++import { soundcloud } from "./soundcloud";
+ import { spotify } from "./spotify";
+ import type { ProviderClient } from "./types";
+ import { youtube } from "./youtube";
+ import { useSettings } from "@/lib/settings";
+ import { PROVIDER_IDS, PROVIDER_LABELS, type ProviderId, type Track } from "@/lib/types";
+ 
+-export const providers: Record<ProviderId, ProviderClient> = { youtube, spotify, apple };
++export const providers: Record<ProviderId, ProviderClient> = { youtube, spotify, soundcloud, apple };
+ 
+ export interface ProviderStatus {
+   id: ProviderId;
+@@ -43,7 +44,7 @@ export type ResolvedLink =
+ /** Resolves a pasted share link into a playable track, or a page to open. */
+ export async function resolveLink(input: string): Promise<ResolvedLink> {
+   const link = parseMusicLink(input);
+-  if (!link) throw new ProviderError("That isn't a YouTube, Spotify or Apple Music link.", "bad_request");
++  if (!link) throw new ProviderError("That isn't a YouTube, Spotify, SoundCloud or Apple Music link.", "bad_request");
+   if (link.provider === "apple") {
+     if (link.kind === "track") {
+       const track = await appleSong(link.id);
+diff --git a/src/lib/providers/links.ts b/src/lib/providers/links.ts
+index 147d3ad..a0d14e7 100644
+--- a/src/lib/providers/links.ts
++++ b/src/lib/providers/links.ts
+@@ -57,6 +57,17 @@ export function parseMusicLink(input: string): ParsedLink | null {
+     return null;
+   }
+ 
++  if (host === "soundcloud.com" || host === "on.soundcloud.com") {
++    if (!parts.length) return null;
++    const clean = `https://${host}/${parts.join("/")}`;
++    if (host === "on.soundcloud.com") return { provider: "soundcloud", kind: "track", id: clean, url: clean };
++    if (parts.length === 1) return { provider: "soundcloud", kind: "artist", id: clean, url: clean };
++    if (parts[1] === "sets" && parts[2]) return { provider: "soundcloud", kind: "playlist", id: clean, url: clean };
++    if (["tracks", "albums", "sets", "reposts", "likes", "followers", "following"].includes(parts[1]))
++      return { provider: "soundcloud", kind: "artist", id: `https://soundcloud.com/${parts[0]}`, url: `https://soundcloud.com/${parts[0]}` };
++    return { provider: "soundcloud", kind: "track", id: clean, url: clean };
++  }
++
+   if (host === "music.apple.com") {
+     // /{storefront}/{album|playlist|artist|song}/{slug}/{id}?i={songId}
+     const [, kind, ...rest] = parts;
+@@ -87,7 +98,7 @@ function apple(kind: LinkKind, id: string, u: URL): ParsedLink {
+ }
+ 
+ export function looksLikeLink(input: string) {
+-  return /^(https?:\/\/|spotify:|(www\.|music\.)?(youtube\.com|youtu\.be|open\.spotify\.com|music\.apple\.com)\/)/i.test(
++  return /^(https?:\/\/|spotify:|(www\.|music\.)?(youtube\.com|youtu\.be|open\.spotify\.com|soundcloud\.com|on\.soundcloud\.com|music\.apple\.com)\/)/i.test(
+     input.trim(),
+   );
+ }
+diff --git a/src/lib/savePlaylistLink.ts b/src/lib/savePlaylistLink.ts
+index 699f5db..82ab302 100644
+--- a/src/lib/savePlaylistLink.ts
++++ b/src/lib/savePlaylistLink.ts
+@@ -49,7 +49,14 @@ export async function savePlaylistLink(link: ParsedLink, providerReady: boolean)
+     ({ name, artwork } = r.album);
+     tracks = r.tracks;
+   } else if (providerReady && link.kind === "playlist") {
+-    const r = await client.playlist(link.id);
++    let id = link.id;
++    if (link.provider === "soundcloud") {
++      // SoundCloud links are permalinks; the API wants the numeric playlist id.
++      const r = await resolveLink(link.url);
++      if (r.kind !== "playlist") throw new ProviderError("That SoundCloud link isn't a playlist.", "bad_request");
++      id = r.id;
++    }
++    const r = await client.playlist(id);
+     ({ name, artwork } = r.playlist);
+     tracks = r.tracks;
+   }
+@@ -58,7 +65,7 @@ export async function savePlaylistLink(link: ParsedLink, providerReady: boolean)
+     if (r.kind !== "track") throw new ProviderError(CONFIG_HINT[link.provider], "not_configured");
+     name = r.track.title;
+     artwork = r.track.artwork;
+-    // YouTube playlists are saved song by song; Spotify playlists stay one item.
++    // YouTube playlists and SoundCloud sets are saved song by song; Spotify playlists stay one item.
+     const songs = await expandCollection(r.track).catch(() => null);
+     tracks = songs?.length ? songs : [r.track];
+   }
+diff --git a/src/lib/server/env.ts b/src/lib/server/env.ts
+index 8f8dea2..bf5ddf8 100644
+--- a/src/lib/server/env.ts
++++ b/src/lib/server/env.ts
+@@ -4,6 +4,8 @@ export type EnvName =
+   | "SPOTIFY_CLIENT_ID"
+   | "SPOTIFY_CLIENT_SECRET"
+   | "SPOTIFY_REDIRECT_URI"
++  | "SOUNDCLOUD_CLIENT_ID"
++  | "SOUNDCLOUD_CLIENT_SECRET"
+   | "APPLE_MUSIC_TEAM_ID"
+   | "APPLE_MUSIC_KEY_ID"
+   | "APPLE_MUSIC_PRIVATE_KEY"
+@@ -33,5 +35,6 @@ export const providersConfigured = () => ({
+   youtube: !!env("YOUTUBE_API_KEY"),
+   spotify: true, // wolfXspotify read-only catalogue requires no credentials
+   spotifyLogin: !!(env("SPOTIFY_CLIENT_ID") && env("SPOTIFY_CLIENT_SECRET") && env("SESSION_SECRET")),
++  soundcloud: !!(env("SOUNDCLOUD_CLIENT_ID") && env("SOUNDCLOUD_CLIENT_SECRET")),
+   apple: !!(env("APPLE_MUSIC_TEAM_ID") && env("APPLE_MUSIC_KEY_ID") && env("APPLE_MUSIC_PRIVATE_KEY")),
+ });
+diff --git a/src/lib/server/oembed.ts b/src/lib/server/oembed.ts
+index e322b93..549d132 100644
+--- a/src/lib/server/oembed.ts
++++ b/src/lib/server/oembed.ts
+@@ -2,6 +2,7 @@ import { ApiError, cached, upstreamError } from "./http";
+ import { providersConfigured } from "./env";
+ import { videosById } from "./youtube";
+ import { catalog } from "./spotify";
++import { resolve as scResolve } from "./soundcloud";
+ import { decodeEntities } from "../providers/mappers/youtube";
+ import { spTrackToTrack, type SpTrack } from "../providers/mappers/spotify";
+ import type { ParsedLink } from "../providers/links";
+@@ -117,6 +118,49 @@ export async function resolveLink(link: ParsedLink): Promise<Resolved> {
+     };
+   }
+ 
++  if (link.provider === "soundcloud") {
++    if (configured.soundcloud) {
++      const r = await scResolve(link.url);
++      if (r.kind === "track" && r.track) return { kind: "track", track: r.track };
++      if (r.kind === "playlist") return { kind: "playlist", provider: "soundcloud", id: r.playlist.id };
++      if (r.kind === "artist") return { kind: "artist", provider: "soundcloud", id: r.artist.id };
++      throw new ApiError(404, "not_found", "That SoundCloud track can't be played.");
++    }
++    const o = await oembed("https://soundcloud.com/oembed", link.url);
++    const src = decodeURIComponent(/src="([^"]+)"/.exec(o.html ?? "")?.[1] ?? "");
++    const m = /api\.soundcloud\.com\/(tracks|playlists)\/(\d+)/.exec(src);
++    if (!m) throw new ApiError(404, "not_found", "That SoundCloud link couldn't be resolved.");
++    const byMatch = /^(.*) by (.*)$/.exec(o.title ?? "");
++    if (m[1] === "playlists")
++      // Without API keys the whole set plays in SoundCloud's own widget.
++      return {
++        kind: "track",
++        track: {
++          key: `soundcloud:playlist:${m[2]}`,
++          provider: "soundcloud",
++          id: `playlist:${m[2]}`,
++          title: byMatch?.[1] ?? o.title ?? "SoundCloud playlist",
++          artists: [{ name: o.author_name ?? byMatch?.[2] ?? "SoundCloud" }],
++          artwork: o.thumbnail_url,
++          url: link.url,
++          playbackRef: `https://api.soundcloud.com/playlists/${m[2]}`,
++        },
++      };
++    return {
++      kind: "track",
++      track: {
++        key: `soundcloud:${m[2]}`,
++        provider: "soundcloud",
++        id: m[2],
++        title: byMatch?.[1] ?? o.title ?? "SoundCloud track",
++        artists: [{ name: o.author_name ?? byMatch?.[2] ?? "SoundCloud" }],
++        artwork: o.thumbnail_url,
++        url: link.url,
++        playbackRef: link.url,
++      },
++    };
++  }
++
+   // Apple Music links are resolved in the browser through MusicKit.
+   throw new ApiError(400, "bad_request", "Apple Music links are opened with MusicKit in the browser.");
+ }
+diff --git a/src/lib/server/routes.ts b/src/lib/server/routes.ts
+index 2a46ff9..2de3088 100644
+--- a/src/lib/server/routes.ts
++++ b/src/lib/server/routes.ts
+@@ -8,6 +8,7 @@ import { ApiError, errorJson, json, requireParam, sameOrigin } from "./http";
+ import { resolveLink } from "./oembed";
+ import { parseTypes } from "./params";
+ import { randomToken, seal, unseal } from "./seal";
++import * as soundcloud from "./soundcloud";
+ import { SESSION_COOKIE, STATE_COOKIE, authorizeUrl, catalog, exchangeCode, redirectUri, refresh } from "./spotify";
+ import * as youtube from "./youtube";
+ 
+@@ -41,7 +42,7 @@ const get: Record<string, Handler> = {
+   resolve: async (req, url) => {
+     sameOrigin(req);
+     const link = parseMusicLink(requireParam(url, "url"));
+-    if (!link) throw new ApiError(400, "bad_request", "That isn't a YouTube, Spotify or Apple Music link.");
++    if (!link) throw new ApiError(400, "bad_request", "That isn't a YouTube, Spotify, SoundCloud or Apple Music link.");
+     return json(await resolveLink(link), { maxAge: 3600 });
+   },
+ 
+@@ -65,6 +66,20 @@ const get: Record<string, Handler> = {
+     return json(await youtube.trending(region && /^[A-Za-z]{2}$/.test(region) ? region : undefined), { maxAge: 3 * 3600 });
+   },
+ 
++  "soundcloud/search": async (req, url) => {
++    sameOrigin(req);
++    const offset = Math.max(0, Math.min(1000, Number(url.searchParams.get("offset")) || 0));
++    return json(await soundcloud.search(requireParam(url, "q"), parseTypes(url), offset), { maxAge: 1800 });
++  },
++  "soundcloud/playlist": async (req, url) => {
++    sameOrigin(req);
++    return json(await soundcloud.playlist(requireParam(url, "id", /^\d+$/)), { maxAge: 1800 });
++  },
++  "soundcloud/user": async (req, url) => {
++    sameOrigin(req);
++    return json(await soundcloud.user(requireParam(url, "id", /^\d+$/)), { maxAge: 1800 });
++  },
++
+   /**
+    * MusicKit developer token. It is designed to be used by browsers; it is
+    * short-lived and can be restricted to this site's origin with ALLOWED_ORIGINS.
+diff --git a/src/lib/settings.ts b/src/lib/settings.ts
+index d9d0b67..8092348 100644
+--- a/src/lib/settings.ts
++++ b/src/lib/settings.ts
+@@ -49,7 +49,7 @@ export const DEFAULT_SETTINGS: Settings = {
+   accent: "green",
+   compactLists: false,
+   reduceMotion: false,
+-  enabledProviders: { youtube: true, spotify: true, apple: true },
++  enabledProviders: { youtube: true, spotify: true, soundcloud: true, apple: true },
+   preferredProvider: "youtube",
+   appleStorefront: "us",
+   spotifyPlayback: "auto",
+diff --git a/src/lib/types.ts b/src/lib/types.ts
+index de3873d..9e24753 100644
+--- a/src/lib/types.ts
++++ b/src/lib/types.ts
+@@ -4,7 +4,7 @@
+  * flattened for the browser.
+  */
+ 
+-export const PROVIDER_IDS = ["youtube", "spotify", "apple"] as const;
++export const PROVIDER_IDS = ["youtube", "spotify", "soundcloud", "apple"] as const;
+ export type ProviderId = (typeof PROVIDER_IDS)[number];
+ 
+ export interface ArtistRef {
+@@ -30,7 +30,7 @@ export interface Track {
+   /** Public page for the track on the provider's site */
+   url?: string;
+   explicit?: boolean;
+-  /** Provider specific identifier used for playback (e.g. spotify:track:… URI) */
++  /** Provider specific identifier used for playback (e.g. spotify:track:… URI, SoundCloud permalink) */
+   playbackRef?: string;
+ }
+ 
+@@ -97,13 +97,12 @@ export const artistNames = (t: { artists: ArtistRef[] }) =>
+ export const PROVIDER_LABELS: Record<ProviderId, string> = {
+   youtube: "YouTube",
+   spotify: "Spotify",
++  soundcloud: "SoundCloud",
+   apple: "Apple Music",
+ };
+ 
+ /** Services parked in disabled-providers/. Songs saved from them stay in the library but can't play. */
+-const PARKED_LABELS: Record<string, string> = {
+-  soundcloud: "SoundCloud",
+-};
++const PARKED_LABELS: Record<string, string> = {};
+ 
+ /** Display name for any saved song's service, including ones this site no longer plays. */
+ export function providerLabel(id: string): string {

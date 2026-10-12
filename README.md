@@ -77,6 +77,11 @@ npm run dev       # site on :3000
 npm run preview   # build and serve exactly like Cloudflare Pages
 ```
 
+## Parked music services
+
+Apple Music and SoundCloud are switched off and kept in [`disabled-providers/`](disabled-providers/README.md),
+with steps to put either one back.
+
 ## License
 
 BSD-4-Clause, same as Spotube. Copyright (c) 2025 Kingkor Roy Tirtho. This product includes software developed by Kingkor Roy
