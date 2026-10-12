@@ -19,7 +19,6 @@ function serviceFor(path: string, params: Record<string, string | number | undef
   if (/spotify/i.test(target)) return "Spotify";
   if (/youtu/i.test(target)) return "YouTube";
   if (/soundcloud/i.test(target)) return "SoundCloud";
-  if (/apple/i.test(target)) return "Apple Music";
   return path === "/api/config" ? "This site" : "The music service";
 }
 
@@ -78,7 +77,6 @@ export interface ServerConfig {
   spotify: boolean;
   spotifyLogin: boolean;
   soundcloud: boolean;
-  apple: boolean;
 }
 
 interface ConfigState {
@@ -94,7 +92,7 @@ interface ConfigState {
 
 export const useServerConfig = create<ConfigState>((set) => ({
   loaded: false,
-  providers: { youtube: false, spotify: false, spotifyLogin: false, soundcloud: false, apple: false },
+  providers: { youtube: false, spotify: false, spotifyLogin: false, soundcloud: false },
   load: async () => {
     try {
       const { providers, spotifyRedirectUri, spotifyRedirectError, spotifyClientId } = await apiGet<{
@@ -117,5 +115,4 @@ export const CONFIG_HINT: Record<ProviderId, string> = {
   youtube: "YouTube search isn't available on this site yet. You can still paste a YouTube link to play it.",
   spotify: "Spotify search isn't available right now. You can still paste a Spotify link to play it.",
   soundcloud: "SoundCloud search isn't available on this site yet. You can still paste a SoundCloud link to play it.",
-  apple: "Apple Music isn't available on this site yet.",
 };

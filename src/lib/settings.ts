@@ -27,7 +27,6 @@ export interface Settings {
   // Providers
   enabledProviders: Record<ProviderId, boolean>;
   preferredProvider: ProviderId;
-  appleStorefront: string;
   spotifyPlayback: "auto" | "embed";
   // Playback
   autoplayNext: boolean;
@@ -49,9 +48,8 @@ export const DEFAULT_SETTINGS: Settings = {
   accent: "green",
   compactLists: false,
   reduceMotion: false,
-  enabledProviders: { youtube: true, spotify: true, soundcloud: true, apple: true },
+  enabledProviders: { youtube: true, spotify: true, soundcloud: true },
   preferredProvider: "youtube",
-  appleStorefront: "us",
   spotifyPlayback: "auto",
   autoplayNext: true,
   resumeLongTracks: true,

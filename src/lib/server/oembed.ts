@@ -161,6 +161,5 @@ export async function resolveLink(link: ParsedLink): Promise<Resolved> {
     };
   }
 
-  // Apple Music links are resolved in the browser through MusicKit.
-  throw new ApiError(400, "bad_request", "Apple Music links are opened with MusicKit in the browser.");
+  throw new ApiError(400, "bad_request", "That link isn't supported.");
 }

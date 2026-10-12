@@ -1,7 +1,6 @@
 "use client";
 
 import { apiGet, CONFIG_HINT, ProviderError, useServerConfig } from "./api";
-import { apple, appleSong } from "./apple";
 import { parseMusicLink, type LinkKind } from "./links";
 import { soundcloud } from "./soundcloud";
 import { spotify } from "./spotify";
@@ -10,7 +9,7 @@ import { youtube } from "./youtube";
 import { useSettings } from "@/lib/settings";
 import { PROVIDER_IDS, PROVIDER_LABELS, type ProviderId, type Track } from "@/lib/types";
 
-export const providers: Record<ProviderId, ProviderClient> = { youtube, spotify, soundcloud, apple };
+export const providers: Record<ProviderId, ProviderClient> = { youtube, spotify, soundcloud };
 
 export interface ProviderStatus {
   id: ProviderId;
@@ -44,15 +43,7 @@ export type ResolvedLink =
 /** Resolves a pasted share link into a playable track, or a page to open. */
 export async function resolveLink(input: string): Promise<ResolvedLink> {
   const link = parseMusicLink(input);
-  if (!link) throw new ProviderError("That isn't a YouTube, Spotify, SoundCloud or Apple Music link.", "bad_request");
-  if (link.provider === "apple") {
-    if (link.kind === "track") {
-      const track = await appleSong(link.id);
-      if (!track) throw new ProviderError("Apple Music couldn't find that song.", "not_found");
-      return { kind: "track", track };
-    }
-    return { kind: link.kind, provider: "apple", id: link.id };
-  }
+  if (!link) throw new ProviderError("That isn't a YouTube, Spotify or SoundCloud link.", "bad_request");
   return apiGet<ResolvedLink>("/api/resolve", { url: link.url });
 }
 

@@ -3,7 +3,7 @@
 
 # Spotube Web
 
-An ad-free, account-free music player for the browser. It searches YouTube, Spotify, SoundCloud and Apple Music using provider integrations (Spotify
+An ad-free, account-free music player for the browser. It searches YouTube, Spotify and SoundCloud using provider integrations (Spotify
 catalogue metadata via the public third-party wolfXspotify API), plays through official players,
 and keeps your library in your own browser (IndexedDB).
 
@@ -27,7 +27,6 @@ Function for `/api`.
 | `SPOTIFY_CLIENT_ID`, `SPOTIFY_CLIENT_SECRET` | Optional Spotify account sign-in and Premium SDK playback; redirect URI: `https://<your-domain>/api/spotify/callback` |
 | `SESSION_SECRET` | Spotify sign-in (32+ random characters, `openssl rand -hex 32`) |
 | `SOUNDCLOUD_CLIENT_ID`, `SOUNDCLOUD_CLIENT_SECRET` | SoundCloud search |
-| `APPLE_MUSIC_TEAM_ID`, `APPLE_MUSIC_KEY_ID`, `APPLE_MUSIC_PRIVATE_KEY` | Apple Music (MusicKit key, whole .p8 contents) |
 | `ALLOWED_ORIGINS`, `YOUTUBE_REGION_CODE`, `SPOTIFY_REDIRECT_URI` | Optional |
 
 Every key is optional. Spotify public metadata search, album browsing, artist lookup, and public playlist
@@ -82,5 +81,5 @@ npm run preview   # build and serve exactly like Cloudflare Pages
 ## License
 
 BSD-4-Clause, same as Spotube. Copyright (c) 2025 Kingkor Roy Tirtho. This product includes software developed by Kingkor Roy
-Tirtho. See [LICENSE](LICENSE). YouTube, Spotify, SoundCloud and Apple Music are trademarks of their owners; this project is not
+Tirtho. See [LICENSE](LICENSE). YouTube, Spotify and SoundCloud are trademarks of their owners; this project is not
 affiliated with them.

@@ -53,7 +53,6 @@ export const HOST_IDS: Record<ProviderId, string> = {
   youtube: "media-stage-youtube",
   spotify: "media-stage-spotify",
   soundcloud: "media-stage-soundcloud",
-  apple: "media-stage-apple",
 };
 
 export function hostElement(provider: ProviderId): HTMLElement {

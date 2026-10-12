@@ -5,10 +5,9 @@ const STYLES: Record<ProviderId, string> = {
   youtube: "bg-red-500/15 text-red-400",
   spotify: "bg-green-500/15 text-green-400",
   soundcloud: "bg-orange-500/15 text-orange-400",
-  apple: "bg-pink-500/15 text-pink-400",
 };
 
-const SHORT: Record<ProviderId, string> = { youtube: "YT", spotify: "SP", soundcloud: "SC", apple: "AM" };
+const SHORT: Record<ProviderId, string> = { youtube: "YT", spotify: "SP", soundcloud: "SC" };
 
 export function ProviderBadge({ provider, full, className }: { provider: ProviderId; full?: boolean; className?: string }) {
   // Songs saved from a parked service (see disabled-providers/) get a plain grey badge.

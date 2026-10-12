@@ -8,13 +8,12 @@ import { useRouter, useSearchParams } from "next/navigation";
 import { Suspense, useEffect, useRef, useState, type ReactNode } from "react";
 import { Page } from "@/components/Page";
 import { ProviderBadge } from "@/components/ProviderBadge";
-import { Button, Dialog, Notice, Spinner, Toggle } from "@/components/ui";
+import { Button, Dialog, Notice, Toggle } from "@/components/ui";
 import { downloadJson, exportAll, importJson } from "@/lib/db/backup";
 import { clearAllData, getDb, requestPersistentStorage, storageEstimate, useDbStatus } from "@/lib/db/db";
 import { clearQueue } from "@/lib/player/engine";
 import { useProviderStatuses } from "@/lib/providers";
 import { useServerConfig } from "@/lib/providers/api";
-import { authorizeApple, unauthorizeApple, useAppleAuth } from "@/lib/providers/apple";
 import { disconnectSpotify, getUserToken, useSpotifyAuth } from "@/lib/providers/spotify";
 import { ACCENTS, setSetting, useSettings, useSettingsStore, type Accent } from "@/lib/settings";
 import { toast } from "@/lib/toast";
@@ -147,53 +146,6 @@ function SpotifyAccount() {
   );
 }
 
-function AppleAccount() {
-  const cfg = useServerConfig((s) => s.providers);
-  const authorized = useAppleAuth((s) => s.authorized);
-  const settings = useSettings();
-  const [busy, setBusy] = useState(false);
-  const [sf, setSf] = useState(settings.appleStorefront);
-  useEffect(() => setSf(settings.appleStorefront), [settings.appleStorefront]);
-  if (!cfg.apple) return null;
-  return (
-    <>
-      <Row
-        label="Apple Music account"
-        description="Optional. Apple Music subscribers can sign in for full songs; everyone else hears previews."
-      >
-        <Button
-          size="sm"
-          variant={authorized ? "outline" : "primary"}
-          disabled={busy}
-          onClick={async () => {
-            setBusy(true);
-            try {
-              if (authorized) await unauthorizeApple();
-              else await authorizeApple();
-            } catch (e) {
-              toast.error((e as Error).message || "Apple Music authorization failed");
-            } finally {
-              setBusy(false);
-            }
-          }}
-        >
-          {busy && <Spinner className="size-4" />} {authorized ? "Sign out of Apple Music" : "Sign in to Apple Music"}
-        </Button>
-      </Row>
-      <Row label="Apple Music storefront" description="Two-letter country code used for catalog searches when you aren't signed in.">
-        <input
-          value={sf}
-          maxLength={2}
-          onChange={(e) => setSf(e.target.value.toLowerCase())}
-          onBlur={() => /^[a-z]{2}$/.test(sf) && setSetting("appleStorefront", sf)}
-          aria-label="Apple Music storefront"
-          className="h-9 w-20 rounded-full border border-line bg-surface-2 px-3 text-center text-sm uppercase"
-        />
-      </Row>
-    </>
-  );
-}
-
 function Providers() {
   const settings = useSettings();
   const statuses = useProviderStatuses();
@@ -242,7 +194,6 @@ function Providers() {
         </select>
       </Row>
       <SpotifyAccount />
-      <AppleAccount />
     </Card>
   );
 }
@@ -461,8 +412,8 @@ function SettingsInner() {
 
       <Card id="privacy" icon={<Shield />} title="Privacy & ads">
         <Notice>
-          Spotube Web shows no ads and doesn&apos;t track you. The only outside players it loads are the official YouTube, Spotify,
-          SoundCloud and Apple Music ones. Spotify&apos;s and YouTube&apos;s load in the background when you open the site so songs start
+          Spotube Web shows no ads and doesn&apos;t track you. The only outside players it loads are the official YouTube, Spotify
+          and SoundCloud ones. Spotify&apos;s and YouTube&apos;s load in the background when you open the site so songs start
           faster; you can turn that off under Playback. <br />
           <br />
           Those players may show their own ads <strong>inside the player</strong> (for example YouTube, SoundCloud and Spotify Free).
@@ -545,7 +496,7 @@ function SettingsInner() {
           </p>
           <p className="mt-2">
             Copyright (c) 2025 Kingkor Roy Tirtho. All rights reserved. Distributed under the BSD-4-Clause License. Spotube Web is not
-            affiliated with or endorsed by YouTube, Spotify, SoundCloud or Apple.
+            affiliated with or endorsed by YouTube, Spotify or SoundCloud.
           </p>
           <p className="mt-2">
             <Link href="/licenses" className="underline">

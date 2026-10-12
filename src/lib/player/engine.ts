@@ -1,7 +1,6 @@
 "use client";
 
 import { create } from "zustand";
-import { AppleMusicAdapter } from "./adapters/apple";
 import { SoundCloudAdapter } from "./adapters/soundcloud";
 import { preloadSpotifyEmbed, SpotifyEmbedAdapter, SpotifySdkAdapter } from "./adapters/spotify";
 import type { AdapterError, AdapterState, PlaybackAdapter } from "./adapters/types";
@@ -95,7 +94,7 @@ function make(kind: string): PlaybackAdapter {
   else if (kind === "soundcloud") a = new SoundCloudAdapter(events);
   else if (kind === "spotify-sdk") a = new SpotifySdkAdapter(events);
   else if (kind === "spotify-embed") a = new SpotifyEmbedAdapter(events);
-  else a = new AppleMusicAdapter(events);
+  else throw new Error(`No player for ${kind}.`);
   adapters.set(kind, a);
   return a;
 }

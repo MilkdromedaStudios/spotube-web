@@ -104,7 +104,6 @@ export function MediaStage() {
         </div>
       )}
       {(Object.keys(HOST_IDS) as ProviderId[])
-        .filter((p) => p !== "apple")
         .map((p) => (
           <div
             key={p}
@@ -112,7 +111,6 @@ export function MediaStage() {
             className={clsx("relative size-full [&_iframe]:!h-full [&_iframe]:!w-full [&>div]:size-full", p !== provider && "hidden")}
           />
         ))}
-      <div id={HOST_IDS.apple} className="hidden" />
     </div>
   );
 }

@@ -211,7 +211,7 @@ export default function ImportPlaylistsPage() {
         <section className="flex flex-col gap-3 rounded-2xl border border-line p-5">
           <h2 className="flex items-center gap-2 text-lg font-semibold"><Link2 className="size-5" /> Import from music services</h2>
           <p className="text-sm text-muted">
-            Paste public or accessible Spotify, YouTube / YouTube Music, SoundCloud, or Apple Music playlist links.
+            Paste public or accessible Spotify, YouTube / YouTube Music or SoundCloud playlist links.
             Add one link per line, up to 10 at a time. We copy song information, not audio files.
           </p>
           <label htmlFor="playlist-links" className="text-sm font-medium">Playlist links</label>

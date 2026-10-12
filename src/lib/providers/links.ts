@@ -14,7 +14,7 @@ const YT_ID = /^[A-Za-z0-9_-]{11}$/;
 
 /**
  * Recognises share links from the supported providers, including
- * YouTube Music, Spotify URIs and Apple Music song links.
+ * YouTube Music and Spotify URIs.
  */
 export function parseMusicLink(input: string): ParsedLink | null {
   const text = input.trim();
@@ -67,19 +67,6 @@ export function parseMusicLink(input: string): ParsedLink | null {
       return { provider: "soundcloud", kind: "artist", id: `https://soundcloud.com/${parts[0]}`, url: `https://soundcloud.com/${parts[0]}` };
     return { provider: "soundcloud", kind: "track", id: clean, url: clean };
   }
-
-  if (host === "music.apple.com") {
-    // /{storefront}/{album|playlist|artist|song}/{slug}/{id}?i={songId}
-    const [, kind, ...rest] = parts;
-    const id = rest[rest.length - 1];
-    const songId = u.searchParams.get("i");
-    if (kind === "album" && songId) return apple("track", songId, u);
-    if (kind === "song" && id) return apple("track", id, u);
-    if (kind === "album" && id) return apple("album", id, u);
-    if (kind === "artist" && id) return apple("artist", id, u);
-    if (kind === "playlist" && id) return apple("playlist", id, u);
-    return null;
-  }
   return null;
 }
 
@@ -93,12 +80,8 @@ function yt(kind: LinkKind, id: string): ParsedLink {
   return { provider: "youtube", kind, id, url };
 }
 
-function apple(kind: LinkKind, id: string, u: URL): ParsedLink {
-  return { provider: "apple", kind, id, url: u.toString() };
-}
-
 export function looksLikeLink(input: string) {
-  return /^(https?:\/\/|spotify:|(www\.|music\.)?(youtube\.com|youtu\.be|open\.spotify\.com|soundcloud\.com|on\.soundcloud\.com|music\.apple\.com)\/)/i.test(
+  return /^(https?:\/\/|spotify:|(www\.|music\.)?(youtube\.com|youtu\.be|open\.spotify\.com|soundcloud\.com|on\.soundcloud\.com)\/)/i.test(
     input.trim(),
   );
 }
