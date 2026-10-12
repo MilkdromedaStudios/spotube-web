@@ -2,14 +2,13 @@
 
 import { apiGet, CONFIG_HINT, ProviderError, useServerConfig } from "./api";
 import { parseMusicLink, type LinkKind } from "./links";
-import { soundcloud } from "./soundcloud";
 import { spotify } from "./spotify";
 import type { ProviderClient } from "./types";
 import { youtube } from "./youtube";
 import { useSettings } from "@/lib/settings";
 import { PROVIDER_IDS, PROVIDER_LABELS, type ProviderId, type Track } from "@/lib/types";
 
-export const providers: Record<ProviderId, ProviderClient> = { youtube, spotify, soundcloud };
+export const providers: Record<ProviderId, ProviderClient> = { youtube, spotify };
 
 export interface ProviderStatus {
   id: ProviderId;
@@ -43,7 +42,7 @@ export type ResolvedLink =
 /** Resolves a pasted share link into a playable track, or a page to open. */
 export async function resolveLink(input: string): Promise<ResolvedLink> {
   const link = parseMusicLink(input);
-  if (!link) throw new ProviderError("That isn't a YouTube, Spotify or SoundCloud link.", "bad_request");
+  if (!link) throw new ProviderError("That isn't a YouTube or Spotify link.", "bad_request");
   return apiGet<ResolvedLink>("/api/resolve", { url: link.url });
 }
 

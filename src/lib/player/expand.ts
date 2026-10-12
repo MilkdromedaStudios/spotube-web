@@ -1,22 +1,19 @@
 "use client";
 
 import { loadApi, type YTPlayer } from "./adapters/youtube";
-import { loadScript } from "./adapters/types";
 import { collectionKind } from "@/lib/collections";
 import { resolveLink } from "@/lib/providers";
-import { scTrackToTrack, type ScTrack } from "@/lib/providers/mappers/soundcloud";
 import { getSettings } from "@/lib/settings";
 import type { Track } from "@/lib/types";
 
 /**
- * Lists the songs of a YouTube playlist or SoundCloud set without API keys by
+ * Lists the songs of a YouTube playlist without API keys by
  * asking the provider's official player, which is loaded off-screen and never
  * plays. Spotify's embed has no such call, so Spotify playlists stay one item.
  */
 export async function expandCollection(item: Track): Promise<Track[] | null> {
   if (collectionKind(item) !== "playlist") return null;
   if (item.provider === "youtube") return youtubeSongs((item.playbackRef ?? "").replace(/^playlist:/, ""));
-  if (item.provider === "soundcloud" && item.playbackRef) return soundcloudSongs(item.playbackRef);
   return null;
 }
 
@@ -78,44 +75,6 @@ async function youtubeSongs(list: string): Promise<Track[]> {
     } catch {
       /* not ready */
     }
-    box.remove();
-  }
-}
-
-interface ScWidgetLite {
-  bind(event: string, cb: () => void): void;
-  getSounds(cb: (sounds: Partial<ScTrack>[]) => void): void;
-}
-
-async function soundcloudSongs(url: string): Promise<Track[]> {
-  await loadScript("https://w.soundcloud.com/player/api.js");
-  const box = offscreen();
-  const iframe = document.createElement("iframe");
-  iframe.title = "SoundCloud playlist reader";
-  iframe.width = "320";
-  iframe.height = "180";
-  iframe.src = `https://w.soundcloud.com/player/?${new URLSearchParams({ url, auto_play: "false", visual: "false" })}`;
-  box.appendChild(iframe);
-  try {
-    const SC = window.SC as unknown as { Widget: ((el: HTMLIFrameElement) => ScWidgetLite) & { Events: Record<string, string> } };
-    const w = SC.Widget(iframe);
-    await new Promise<void>((resolve, reject) => {
-      const timer = setTimeout(() => reject(new Error("SoundCloud didn't load the playlist.")), TIMEOUT_MS);
-      w.bind(SC.Widget.Events.READY, () => (clearTimeout(timer), resolve()));
-    });
-    const read = () => new Promise<Partial<ScTrack>[]>((resolve) => w.getSounds(resolve));
-    // The widget fills in song details in batches, so read again until every song has a title.
-    let sounds = await read();
-    for (let i = 0; i < 10 && sounds.some((s) => !s.title); i++) {
-      await new Promise((r) => setTimeout(r, 500));
-      sounds = await read();
-    }
-    return sounds
-      .filter((s): s is ScTrack => !!s.id && !!s.title)
-      .slice(0, MAX_SONGS)
-      .map(scTrackToTrack)
-      .filter((t): t is Track => !!t);
-  } finally {
     box.remove();
   }
 }

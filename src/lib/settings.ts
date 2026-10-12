@@ -48,7 +48,7 @@ export const DEFAULT_SETTINGS: Settings = {
   accent: "green",
   compactLists: false,
   reduceMotion: false,
-  enabledProviders: { youtube: true, spotify: true, soundcloud: true },
+  enabledProviders: { youtube: true, spotify: true },
   preferredProvider: "youtube",
   spotifyPlayback: "auto",
   autoplayNext: true,

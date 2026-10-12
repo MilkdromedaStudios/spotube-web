@@ -5,7 +5,7 @@ import { AppShell } from "@/components/shell/AppShell";
 export const metadata: Metadata = {
   title: { default: "Spotube Web", template: "%s · Spotube Web" },
   description:
-    "An open-source, ad-free web music player based on Spotube. Search YouTube, Spotify and SoundCloud and keep your library in your own browser.",
+    "An open-source, ad-free web music player based on Spotube. Search YouTube and Spotify and keep your library in your own browser.",
   applicationName: "Spotube Web",
   manifest: "/manifest.webmanifest",
   icons: { icon: [{ url: "/brand-icon.svg", type: "image/svg+xml" }], apple: "/brand-icon.svg" },

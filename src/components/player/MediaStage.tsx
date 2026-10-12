@@ -9,7 +9,7 @@ import { Spinner } from "@/components/ui";
 import type { ProviderId } from "@/lib/types";
 
 /** Providers whose official player is a visible embed. */
-export const EMBED_PROVIDERS: ProviderId[] = ["youtube", "spotify", "soundcloud"];
+export const EMBED_PROVIDERS: ProviderId[] = ["youtube", "spotify"];
 
 export function useStageProvider(): ProviderId | null {
   return usePlayer((s) => {
@@ -24,7 +24,6 @@ export function stageHeight(provider: ProviderId | null, place: "panel" | "dock"
   // Spotify's compact 80px embed is suitable for tracks only. Playlist, album
   // and artist embeds need their full player height so the Play control is visible.
   if (provider === "spotify") return collection ? 352 : place === "dock" ? 80 : 152;
-  if (provider === "soundcloud") return 166;
   return place === "dock" ? 200 : 0; // youtube uses aspect-ratio in panel/full
 }
 

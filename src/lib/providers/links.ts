@@ -57,16 +57,6 @@ export function parseMusicLink(input: string): ParsedLink | null {
     return null;
   }
 
-  if (host === "soundcloud.com" || host === "on.soundcloud.com") {
-    if (!parts.length) return null;
-    const clean = `https://${host}/${parts.join("/")}`;
-    if (host === "on.soundcloud.com") return { provider: "soundcloud", kind: "track", id: clean, url: clean };
-    if (parts.length === 1) return { provider: "soundcloud", kind: "artist", id: clean, url: clean };
-    if (parts[1] === "sets" && parts[2]) return { provider: "soundcloud", kind: "playlist", id: clean, url: clean };
-    if (["tracks", "albums", "sets", "reposts", "likes", "followers", "following"].includes(parts[1]))
-      return { provider: "soundcloud", kind: "artist", id: `https://soundcloud.com/${parts[0]}`, url: `https://soundcloud.com/${parts[0]}` };
-    return { provider: "soundcloud", kind: "track", id: clean, url: clean };
-  }
   return null;
 }
 
@@ -81,7 +71,7 @@ function yt(kind: LinkKind, id: string): ParsedLink {
 }
 
 export function looksLikeLink(input: string) {
-  return /^(https?:\/\/|spotify:|(www\.|music\.)?(youtube\.com|youtu\.be|open\.spotify\.com|soundcloud\.com|on\.soundcloud\.com)\/)/i.test(
+  return /^(https?:\/\/|spotify:|(www\.|music\.)?(youtube\.com|youtu\.be|open\.spotify\.com)\/)/i.test(
     input.trim(),
   );
 }

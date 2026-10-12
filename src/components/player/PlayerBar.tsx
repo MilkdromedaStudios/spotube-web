@@ -17,7 +17,6 @@ import { SkipForward } from "lucide-react";
 
 export const AD_NOTICE: Partial<Record<ProviderId, string>> = {
   youtube: "YouTube may show ads.",
-  soundcloud: "SoundCloud may play ads.",
   spotify: "Spotify may play ads on free accounts.",
 };
 

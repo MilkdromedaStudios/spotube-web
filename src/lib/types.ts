@@ -4,7 +4,7 @@
  * flattened for the browser.
  */
 
-export const PROVIDER_IDS = ["youtube", "spotify", "soundcloud"] as const;
+export const PROVIDER_IDS = ["youtube", "spotify"] as const;
 export type ProviderId = (typeof PROVIDER_IDS)[number];
 
 export interface ArtistRef {
@@ -30,7 +30,7 @@ export interface Track {
   /** Public page for the track on the provider's site */
   url?: string;
   explicit?: boolean;
-  /** Provider specific identifier used for playback (e.g. spotify:track:… URI, SoundCloud permalink) */
+  /** Provider specific identifier used for playback (e.g. spotify:track:… URI) */
   playbackRef?: string;
 }
 
@@ -97,12 +97,12 @@ export const artistNames = (t: { artists: ArtistRef[] }) =>
 export const PROVIDER_LABELS: Record<ProviderId, string> = {
   youtube: "YouTube",
   spotify: "Spotify",
-  soundcloud: "SoundCloud",
 };
 
 /** Services parked in disabled-providers/. Songs saved from them stay in the library but can't play. */
 const PARKED_LABELS: Record<string, string> = {
   apple: "Apple Music",
+  soundcloud: "SoundCloud",
 };
 
 /** Display name for any saved song's service, including ones this site no longer plays. */

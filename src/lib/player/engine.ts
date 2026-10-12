@@ -1,7 +1,6 @@
 "use client";
 
 import { create } from "zustand";
-import { SoundCloudAdapter } from "./adapters/soundcloud";
 import { preloadSpotifyEmbed, SpotifyEmbedAdapter, SpotifySdkAdapter } from "./adapters/spotify";
 import type { AdapterError, AdapterState, PlaybackAdapter } from "./adapters/types";
 import { loadApi as loadYouTubeApi, YouTubeAdapter } from "./adapters/youtube";
@@ -91,7 +90,6 @@ function make(kind: string): PlaybackAdapter {
     onError: (e: AdapterError) => a === current && onAdapterError(e),
   };
   if (kind === "youtube") a = new YouTubeAdapter(events);
-  else if (kind === "soundcloud") a = new SoundCloudAdapter(events);
   else if (kind === "spotify-sdk") a = new SpotifySdkAdapter(events);
   else if (kind === "spotify-embed") a = new SpotifyEmbedAdapter(events);
   else throw new Error(`No player for ${kind}.`);

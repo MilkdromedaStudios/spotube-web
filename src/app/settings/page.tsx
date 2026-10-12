@@ -412,11 +412,11 @@ function SettingsInner() {
 
       <Card id="privacy" icon={<Shield />} title="Privacy & ads">
         <Notice>
-          Spotube Web shows no ads and doesn&apos;t track you. The only outside players it loads are the official YouTube, Spotify
-          and SoundCloud ones. Spotify&apos;s and YouTube&apos;s load in the background when you open the site so songs start
+          Spotube Web shows no ads and doesn&apos;t track you. The only outside players it loads are the official YouTube and
+          Spotify ones. They load in the background when you open the site so songs start
           faster; you can turn that off under Playback. <br />
           <br />
-          Those players may show their own ads <strong>inside the player</strong> (for example YouTube, SoundCloud and Spotify Free).
+          Those players may show their own ads <strong>inside the player</strong> (for example YouTube and Spotify Free).
           Spotube Web doesn&apos;t block or skip them, because that would break the services&apos; rules.
         </Notice>
         <Toggle
@@ -496,7 +496,7 @@ function SettingsInner() {
           </p>
           <p className="mt-2">
             Copyright (c) 2025 Kingkor Roy Tirtho. All rights reserved. Distributed under the BSD-4-Clause License. Spotube Web is not
-            affiliated with or endorsed by YouTube, Spotify or SoundCloud.
+            affiliated with or endorsed by YouTube or Spotify.
           </p>
           <p className="mt-2">
             <Link href="/licenses" className="underline">
