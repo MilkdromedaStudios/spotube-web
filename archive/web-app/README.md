@@ -1,3 +1,8 @@
+> **Archived on 2026-10-12.** The site is no longer worked on or deployed from this repository. The
+> [browser extension](../../extension/README.md) replaced it. To bring the site back, revert the commit "Archive the web
+> app" (or move this folder's contents back to the repository root). To deploy it from here instead, set Cloudflare Pages'
+> **Root directory** to `archive/web-app`.
+
 <div align="center">
   <img width="96" src="public/spotube-logo.png" alt="Spotube Web logo">
 

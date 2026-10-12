@@ -6,8 +6,12 @@ on:
     branches: [master]
 
 jobs:
+  # The archived web app (archive/web-app) still builds, so it can be brought back.
   nextjs-build:
     runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: archive/web-app
     steps:
       - name: Checkout source
         uses: actions/checkout@v4
@@ -16,7 +20,9 @@ jobs:
         with:
           node-version: '22'
           cache: npm
+          cache-dependency-path: archive/web-app/package-lock.json
       - name: Install dependencies
         run: npm ci
       - name: Build and typecheck
         run: npm run build
+
