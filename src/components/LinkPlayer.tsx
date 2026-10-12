@@ -12,7 +12,7 @@ import { savePlaylistLink } from "@/lib/savePlaylistLink";
 import { toast } from "@/lib/toast";
 
 /**
- * Plays any YouTube / YouTube Music / Spotify / SoundCloud / Apple Music share link.
+ * Plays any YouTube / YouTube Music / Spotify share link.
  * Playlist and album links are saved to the library first, then played.
  */
 export function useOpenLink() {
@@ -68,7 +68,7 @@ export function LinkPlayer() {
         <input
           value={url}
           onChange={(e) => setUrl(e.target.value)}
-          placeholder="Paste a song or playlist link from YouTube, YouTube Music, Spotify, SoundCloud or Apple Music"
+          placeholder="Paste a song or playlist link from YouTube, YouTube Music or Spotify"
           className="h-10 w-full bg-transparent text-sm outline-none placeholder:text-subtle"
           inputMode="url"
         />

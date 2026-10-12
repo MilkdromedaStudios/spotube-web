@@ -131,15 +131,7 @@ export default function ImportPlaylistsPage() {
         continue;
       }
       try {
-        // SoundCloud share links use a permalink; resolve it to the numeric playlist ID.
-        let id = parsed.id;
-        if (parsed.provider === "soundcloud") {
-          const resolved = await resolveLink(parsed.url);
-          if (resolved.kind !== "playlist" || resolved.provider !== "soundcloud") {
-            throw new Error("This link is not a SoundCloud playlist.");
-          }
-          id = resolved.id;
-        }
+        const id = parsed.id;
         const key = parsed.provider + ":" + id;
         if (visited.has(key)) continue;
         visited.add(key);
@@ -211,7 +203,7 @@ export default function ImportPlaylistsPage() {
         <section className="flex flex-col gap-3 rounded-2xl border border-line p-5">
           <h2 className="flex items-center gap-2 text-lg font-semibold"><Link2 className="size-5" /> Import from music services</h2>
           <p className="text-sm text-muted">
-            Paste public or accessible Spotify, YouTube / YouTube Music, SoundCloud, or Apple Music playlist links.
+            Paste public or accessible Spotify or YouTube / YouTube Music playlist links.
             Add one link per line, up to 10 at a time. We copy song information, not audio files.
           </p>
           <label htmlFor="playlist-links" className="text-sm font-medium">Playlist links</label>

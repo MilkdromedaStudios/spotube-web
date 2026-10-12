@@ -33,7 +33,7 @@ function silentWav(seconds = 1, rate = 8000) {
 }
 
 function syncKeeper(playing: boolean, provider?: string) {
-  const want = playing && getSettings().mediaSession && provider !== "apple";
+  const want = playing && getSettings().mediaSession;
   if (!want) {
     keeper?.pause();
     return;

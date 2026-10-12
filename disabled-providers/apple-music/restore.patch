@@ -1,0 +1,545 @@
+diff --git a/README.md b/README.md
+index 6016fac..6b45fa4 100644
+--- a/README.md
++++ b/README.md
+@@ -3,7 +3,7 @@
+ 
+ # Spotube Web
+ 
+-An ad-free, account-free music player for the browser. It searches YouTube and Spotify using provider integrations (Spotify
++An ad-free, account-free music player for the browser. It searches YouTube, Spotify and Apple Music using provider integrations (Spotify
+ catalogue metadata via the public third-party wolfXspotify API), plays through official players,
+ and keeps your library in your own browser (IndexedDB).
+ 
+@@ -26,6 +26,7 @@ Function for `/api`.
+ | *(none)* | Spotify public catalogue search and playlist/album metadata via wolfXspotify (no key required) |
+ | `SPOTIFY_CLIENT_ID`, `SPOTIFY_CLIENT_SECRET` | Optional Spotify account sign-in and Premium SDK playback; redirect URI: `https://<your-domain>/api/spotify/callback` |
+ | `SESSION_SECRET` | Spotify sign-in (32+ random characters, `openssl rand -hex 32`) |
++| `APPLE_MUSIC_TEAM_ID`, `APPLE_MUSIC_KEY_ID`, `APPLE_MUSIC_PRIVATE_KEY` | Apple Music (MusicKit key, whole .p8 contents) |
+ | `ALLOWED_ORIGINS`, `YOUTUBE_REGION_CODE`, `SPOTIFY_REDIRECT_URI` | Optional |
+ 
+ Every key is optional. Spotify public metadata search, album browsing, artist lookup, and public playlist
+@@ -80,5 +81,5 @@ npm run preview   # build and serve exactly like Cloudflare Pages
+ ## License
+ 
+ BSD-4-Clause, same as Spotube. Copyright (c) 2025 Kingkor Roy Tirtho. This product includes software developed by Kingkor Roy
+-Tirtho. See [LICENSE](LICENSE). YouTube and Spotify are trademarks of their owners; this project is not
++Tirtho. See [LICENSE](LICENSE). YouTube, Spotify and Apple Music are trademarks of their owners; this project is not
+ affiliated with them.
+diff --git a/public/_headers b/public/_headers
+index 73d4706..5bcced4 100644
+--- a/public/_headers
++++ b/public/_headers
+@@ -6,7 +6,7 @@
+ # script are blocked by the browser. Ads that providers serve inside their own
+ # players are not touched. YouTube embeds need a referrer, so the origin is sent.
+ /*
+-  Content-Security-Policy: default-src 'self'; script-src 'self' 'unsafe-inline' https://www.youtube.com https://s.ytimg.com https://open.spotify.com https://embed-cdn.spotifycdn.com https://sdk.scdn.co; style-src 'self' 'unsafe-inline'; img-src 'self' data: blob: https:; font-src 'self' data:; connect-src 'self' https://api.spotify.com https://*.spotify.com wss://*.spotify.com https://*.scdn.co https://*.spotifycdn.com; media-src 'self' data: blob: https://*.scdn.co https://*.spotifycdn.com; frame-src https://www.youtube.com https://www.youtube-nocookie.com https://open.spotify.com https://sdk.scdn.co; worker-src 'self' blob:; object-src 'none'; base-uri 'self'; form-action 'self' https://accounts.spotify.com; frame-ancestors 'none'; upgrade-insecure-requests
++  Content-Security-Policy: default-src 'self'; script-src 'self' 'unsafe-inline' https://www.youtube.com https://s.ytimg.com https://open.spotify.com https://embed-cdn.spotifycdn.com https://sdk.scdn.co https://js-cdn.music.apple.com; style-src 'self' 'unsafe-inline'; img-src 'self' data: blob: https:; font-src 'self' data:; connect-src 'self' https://api.spotify.com https://*.spotify.com wss://*.spotify.com https://*.scdn.co https://*.spotifycdn.com https://api.music.apple.com https://*.apple.com https://*.itunes.apple.com https://*.mzstatic.com; media-src 'self' data: blob: https://*.scdn.co https://*.spotifycdn.com https://*.apple.com https://*.itunes.apple.com https://*.mzstatic.com; frame-src https://www.youtube.com https://www.youtube-nocookie.com https://open.spotify.com https://sdk.scdn.co https://*.apple.com; worker-src 'self' blob:; object-src 'none'; base-uri 'self'; form-action 'self' https://accounts.spotify.com; frame-ancestors 'none'; upgrade-insecure-requests
+   Referrer-Policy: strict-origin-when-cross-origin
+   X-Content-Type-Options: nosniff
+   Permissions-Policy: camera=(), microphone=(), geolocation=(), payment=(), usb=(), browsing-topics=(), interest-cohort=()
+diff --git a/src/app/import/page.tsx b/src/app/import/page.tsx
+index 656e071..e545858 100644
+--- a/src/app/import/page.tsx
++++ b/src/app/import/page.tsx
+@@ -203,7 +203,7 @@ export default function ImportPlaylistsPage() {
+         <section className="flex flex-col gap-3 rounded-2xl border border-line p-5">
+           <h2 className="flex items-center gap-2 text-lg font-semibold"><Link2 className="size-5" /> Import from music services</h2>
+           <p className="text-sm text-muted">
+-            Paste public or accessible Spotify or YouTube / YouTube Music playlist links.
++            Paste public or accessible Spotify, YouTube / YouTube Music or Apple Music playlist links.
+             Add one link per line, up to 10 at a time. We copy song information, not audio files.
+           </p>
+           <label htmlFor="playlist-links" className="text-sm font-medium">Playlist links</label>
+diff --git a/src/app/layout.tsx b/src/app/layout.tsx
+index c024421..bbbbb2a 100644
+--- a/src/app/layout.tsx
++++ b/src/app/layout.tsx
+@@ -5,7 +5,7 @@ import { AppShell } from "@/components/shell/AppShell";
+ export const metadata: Metadata = {
+   title: { default: "Spotube Web", template: "%s · Spotube Web" },
+   description:
+-    "An open-source, ad-free web music player based on Spotube. Search YouTube and Spotify and keep your library in your own browser.",
++    "An open-source, ad-free web music player based on Spotube. Search YouTube, Spotify and Apple Music and keep your library in your own browser.",
+   applicationName: "Spotube Web",
+   manifest: "/manifest.webmanifest",
+   icons: { icon: [{ url: "/brand-icon.svg", type: "image/svg+xml" }], apple: "/brand-icon.svg" },
+diff --git a/src/app/licenses/page.tsx b/src/app/licenses/page.tsx
+index 86fc59d..54e612c 100644
+--- a/src/app/licenses/page.tsx
++++ b/src/app/licenses/page.tsx
+@@ -23,7 +23,7 @@ export default function LicensesPage() {
+         </p>
+         <iframe title="BSD-4-Clause license" src="/LICENSE.txt" className="h-[28rem] w-full rounded-xl border border-line bg-white" />
+         <p>
+-          YouTube and Spotify are trademarks of their respective owners. Spotube Web uses their official
++          YouTube, Spotify and Apple Music are trademarks of their respective owners. Spotube Web uses their official
+           APIs and players and is not affiliated with them.
+         </p>
+         <Link href="/settings#about" className="underline">
+diff --git a/src/app/settings/page.tsx b/src/app/settings/page.tsx
+index 1420049..d7d61c2 100644
+--- a/src/app/settings/page.tsx
++++ b/src/app/settings/page.tsx
+@@ -8,12 +8,13 @@ import { useRouter, useSearchParams } from "next/navigation";
+ import { Suspense, useEffect, useRef, useState, type ReactNode } from "react";
+ import { Page } from "@/components/Page";
+ import { ProviderBadge } from "@/components/ProviderBadge";
+-import { Button, Dialog, Notice, Toggle } from "@/components/ui";
++import { Button, Dialog, Notice, Spinner, Toggle } from "@/components/ui";
+ import { downloadJson, exportAll, importJson } from "@/lib/db/backup";
+ import { clearAllData, getDb, requestPersistentStorage, storageEstimate, useDbStatus } from "@/lib/db/db";
+ import { clearQueue } from "@/lib/player/engine";
+ import { useProviderStatuses } from "@/lib/providers";
+ import { useServerConfig } from "@/lib/providers/api";
++import { authorizeApple, unauthorizeApple, useAppleAuth } from "@/lib/providers/apple";
+ import { disconnectSpotify, getUserToken, useSpotifyAuth } from "@/lib/providers/spotify";
+ import { ACCENTS, setSetting, useSettings, useSettingsStore, type Accent } from "@/lib/settings";
+ import { toast } from "@/lib/toast";
+@@ -146,6 +147,53 @@ function SpotifyAccount() {
+   );
+ }
+ 
++function AppleAccount() {
++  const cfg = useServerConfig((s) => s.providers);
++  const authorized = useAppleAuth((s) => s.authorized);
++  const settings = useSettings();
++  const [busy, setBusy] = useState(false);
++  const [sf, setSf] = useState(settings.appleStorefront);
++  useEffect(() => setSf(settings.appleStorefront), [settings.appleStorefront]);
++  if (!cfg.apple) return null;
++  return (
++    <>
++      <Row
++        label="Apple Music account"
++        description="Optional. Apple Music subscribers can sign in for full songs; everyone else hears previews."
++      >
++        <Button
++          size="sm"
++          variant={authorized ? "outline" : "primary"}
++          disabled={busy}
++          onClick={async () => {
++            setBusy(true);
++            try {
++              if (authorized) await unauthorizeApple();
++              else await authorizeApple();
++            } catch (e) {
++              toast.error((e as Error).message || "Apple Music authorization failed");
++            } finally {
++              setBusy(false);
++            }
++          }}
++        >
++          {busy && <Spinner className="size-4" />} {authorized ? "Sign out of Apple Music" : "Sign in to Apple Music"}
++        </Button>
++      </Row>
++      <Row label="Apple Music storefront" description="Two-letter country code used for catalog searches when you aren't signed in.">
++        <input
++          value={sf}
++          maxLength={2}
++          onChange={(e) => setSf(e.target.value.toLowerCase())}
++          onBlur={() => /^[a-z]{2}$/.test(sf) && setSetting("appleStorefront", sf)}
++          aria-label="Apple Music storefront"
++          className="h-9 w-20 rounded-full border border-line bg-surface-2 px-3 text-center text-sm uppercase"
++        />
++      </Row>
++    </>
++  );
++}
++
+ function Providers() {
+   const settings = useSettings();
+   const statuses = useProviderStatuses();
+@@ -194,6 +242,7 @@ function Providers() {
+         </select>
+       </Row>
+       <SpotifyAccount />
++      <AppleAccount />
+     </Card>
+   );
+ }
+@@ -412,8 +461,8 @@ function SettingsInner() {
+ 
+       <Card id="privacy" icon={<Shield />} title="Privacy & ads">
+         <Notice>
+-          Spotube Web shows no ads and doesn&apos;t track you. The only outside players it loads are the official YouTube and
+-          Spotify ones. They load in the background when you open the site so songs start
++          Spotube Web shows no ads and doesn&apos;t track you. The only outside players it loads are the official YouTube, Spotify
++          and Apple Music ones. Spotify&apos;s and YouTube&apos;s load in the background when you open the site so songs start
+           faster; you can turn that off under Playback. <br />
+           <br />
+           Those players may show their own ads <strong>inside the player</strong> (for example YouTube and Spotify Free).
+@@ -496,7 +545,7 @@ function SettingsInner() {
+           </p>
+           <p className="mt-2">
+             Copyright (c) 2025 Kingkor Roy Tirtho. All rights reserved. Distributed under the BSD-4-Clause License. Spotube Web is not
+-            affiliated with or endorsed by YouTube or Spotify.
++            affiliated with or endorsed by YouTube, Spotify or Apple.
+           </p>
+           <p className="mt-2">
+             <Link href="/licenses" className="underline">
+diff --git a/src/components/LinkPlayer.tsx b/src/components/LinkPlayer.tsx
+index 005bda6..0205774 100644
+--- a/src/components/LinkPlayer.tsx
++++ b/src/components/LinkPlayer.tsx
+@@ -12,7 +12,7 @@ import { savePlaylistLink } from "@/lib/savePlaylistLink";
+ import { toast } from "@/lib/toast";
+ 
+ /**
+- * Plays any YouTube / YouTube Music / Spotify share link.
++ * Plays any YouTube / YouTube Music / Spotify / Apple Music share link.
+  * Playlist and album links are saved to the library first, then played.
+  */
+ export function useOpenLink() {
+@@ -68,7 +68,7 @@ export function LinkPlayer() {
+         <input
+           value={url}
+           onChange={(e) => setUrl(e.target.value)}
+-          placeholder="Paste a song or playlist link from YouTube, YouTube Music or Spotify"
++          placeholder="Paste a song or playlist link from YouTube, YouTube Music, Spotify or Apple Music"
+           className="h-10 w-full bg-transparent text-sm outline-none placeholder:text-subtle"
+           inputMode="url"
+         />
+diff --git a/src/components/ProviderBadge.tsx b/src/components/ProviderBadge.tsx
+index b80667e..43551e1 100644
+--- a/src/components/ProviderBadge.tsx
++++ b/src/components/ProviderBadge.tsx
+@@ -4,9 +4,10 @@ import { providerLabel, type ProviderId } from "@/lib/types";
+ const STYLES: Record<ProviderId, string> = {
+   youtube: "bg-red-500/15 text-red-400",
+   spotify: "bg-green-500/15 text-green-400",
++  apple: "bg-pink-500/15 text-pink-400",
+ };
+ 
+-const SHORT: Record<ProviderId, string> = { youtube: "YT", spotify: "SP" };
++const SHORT: Record<ProviderId, string> = { youtube: "YT", spotify: "SP", apple: "AM" };
+ 
+ export function ProviderBadge({ provider, full, className }: { provider: ProviderId; full?: boolean; className?: string }) {
+   // Songs saved from a parked service (see disabled-providers/) get a plain grey badge.
+diff --git a/src/components/ProviderGate.tsx b/src/components/ProviderGate.tsx
+index b98d294..b05b9c8 100644
+--- a/src/components/ProviderGate.tsx
++++ b/src/components/ProviderGate.tsx
+@@ -11,6 +11,7 @@ import type { ProviderId } from "@/lib/types";
+ export function ProviderGate({ provider, children }: { provider: ProviderId; children: ReactNode }) {
+   const loaded = useServerConfig((s) => s.loaded);
+   const status = useProviderStatuses().find((s) => s.id === provider)!;
++  // Apple Music is configured client-side through MusicKit, but still needs the server's developer token.
+   if (!loaded) return <LoadingState label="Checking provider…" />;
+   if (!status.ready)
+     return (
+diff --git a/src/components/player/MediaStage.tsx b/src/components/player/MediaStage.tsx
+index bc8938d..5406db9 100644
+--- a/src/components/player/MediaStage.tsx
++++ b/src/components/player/MediaStage.tsx
+@@ -103,6 +103,7 @@ export function MediaStage() {
+         </div>
+       )}
+       {(Object.keys(HOST_IDS) as ProviderId[])
++        .filter((p) => p !== "apple")
+         .map((p) => (
+           <div
+             key={p}
+@@ -110,6 +111,7 @@ export function MediaStage() {
+             className={clsx("relative size-full [&_iframe]:!h-full [&_iframe]:!w-full [&>div]:size-full", p !== provider && "hidden")}
+           />
+         ))}
++      <div id={HOST_IDS.apple} className="hidden" />
+     </div>
+   );
+ }
+diff --git a/src/lib/player/adapters/types.ts b/src/lib/player/adapters/types.ts
+index b5e20ad..028a337 100644
+--- a/src/lib/player/adapters/types.ts
++++ b/src/lib/player/adapters/types.ts
+@@ -52,6 +52,7 @@ export interface PlaybackAdapter {
+ export const HOST_IDS: Record<ProviderId, string> = {
+   youtube: "media-stage-youtube",
+   spotify: "media-stage-spotify",
++  apple: "media-stage-apple",
+ };
+ 
+ export function hostElement(provider: ProviderId): HTMLElement {
+diff --git a/src/lib/player/engine.ts b/src/lib/player/engine.ts
+index 2080596..9b5d9a1 100644
+--- a/src/lib/player/engine.ts
++++ b/src/lib/player/engine.ts
+@@ -1,6 +1,7 @@
+ "use client";
+ 
+ import { create } from "zustand";
++import { AppleMusicAdapter } from "./adapters/apple";
+ import { preloadSpotifyEmbed, SpotifyEmbedAdapter, SpotifySdkAdapter } from "./adapters/spotify";
+ import type { AdapterError, AdapterState, PlaybackAdapter } from "./adapters/types";
+ import { loadApi as loadYouTubeApi, YouTubeAdapter } from "./adapters/youtube";
+@@ -92,7 +93,7 @@ function make(kind: string): PlaybackAdapter {
+   if (kind === "youtube") a = new YouTubeAdapter(events);
+   else if (kind === "spotify-sdk") a = new SpotifySdkAdapter(events);
+   else if (kind === "spotify-embed") a = new SpotifyEmbedAdapter(events);
+-  else throw new Error(`No player for ${kind}.`);
++  else a = new AppleMusicAdapter(events);
+   adapters.set(kind, a);
+   return a;
+ }
+diff --git a/src/lib/player/mediaSession.ts b/src/lib/player/mediaSession.ts
+index 4a7ab2c..242c038 100644
+--- a/src/lib/player/mediaSession.ts
++++ b/src/lib/player/mediaSession.ts
+@@ -33,7 +33,7 @@ function silentWav(seconds = 1, rate = 8000) {
+ }
+ 
+ function syncKeeper(playing: boolean, provider?: string) {
+-  const want = playing && getSettings().mediaSession;
++  const want = playing && getSettings().mediaSession && provider !== "apple";
+   if (!want) {
+     keeper?.pause();
+     return;
+diff --git a/src/lib/providers/api.ts b/src/lib/providers/api.ts
+index cbaccab..ef07613 100644
+--- a/src/lib/providers/api.ts
++++ b/src/lib/providers/api.ts
+@@ -18,6 +18,7 @@ function serviceFor(path: string, params: Record<string, string | number | undef
+   const target = path === "/api/resolve" ? String(params.url ?? "") : path;
+   if (/spotify/i.test(target)) return "Spotify";
+   if (/youtu/i.test(target)) return "YouTube";
++  if (/apple/i.test(target)) return "Apple Music";
+   return path === "/api/config" ? "This site" : "The music service";
+ }
+ 
+@@ -75,6 +76,7 @@ export interface ServerConfig {
+   youtube: boolean;
+   spotify: boolean;
+   spotifyLogin: boolean;
++  apple: boolean;
+ }
+ 
+ interface ConfigState {
+@@ -90,7 +92,7 @@ interface ConfigState {
+ 
+ export const useServerConfig = create<ConfigState>((set) => ({
+   loaded: false,
+-  providers: { youtube: false, spotify: false, spotifyLogin: false },
++  providers: { youtube: false, spotify: false, spotifyLogin: false, apple: false },
+   load: async () => {
+     try {
+       const { providers, spotifyRedirectUri, spotifyRedirectError, spotifyClientId } = await apiGet<{
+@@ -112,4 +114,5 @@ export const configuredFor = (p: ProviderId, c: ServerConfig) => c[p];
+ export const CONFIG_HINT: Record<ProviderId, string> = {
+   youtube: "YouTube search isn't available on this site yet. You can still paste a YouTube link to play it.",
+   spotify: "Spotify search isn't available right now. You can still paste a Spotify link to play it.",
++  apple: "Apple Music isn't available on this site yet.",
+ };
+diff --git a/src/lib/providers/index.ts b/src/lib/providers/index.ts
+index bff2f2d..958fb99 100644
+--- a/src/lib/providers/index.ts
++++ b/src/lib/providers/index.ts
+@@ -1,6 +1,7 @@
+ "use client";
+ 
+ import { apiGet, CONFIG_HINT, ProviderError, useServerConfig } from "./api";
++import { apple, appleSong } from "./apple";
+ import { parseMusicLink, type LinkKind } from "./links";
+ import { spotify } from "./spotify";
+ import type { ProviderClient } from "./types";
+@@ -8,7 +9,7 @@ import { youtube } from "./youtube";
+ import { useSettings } from "@/lib/settings";
+ import { PROVIDER_IDS, PROVIDER_LABELS, type ProviderId, type Track } from "@/lib/types";
+ 
+-export const providers: Record<ProviderId, ProviderClient> = { youtube, spotify };
++export const providers: Record<ProviderId, ProviderClient> = { youtube, spotify, apple };
+ 
+ export interface ProviderStatus {
+   id: ProviderId;
+@@ -42,7 +43,15 @@ export type ResolvedLink =
+ /** Resolves a pasted share link into a playable track, or a page to open. */
+ export async function resolveLink(input: string): Promise<ResolvedLink> {
+   const link = parseMusicLink(input);
+-  if (!link) throw new ProviderError("That isn't a YouTube or Spotify link.", "bad_request");
++  if (!link) throw new ProviderError("That isn't a YouTube, Spotify or Apple Music link.", "bad_request");
++  if (link.provider === "apple") {
++    if (link.kind === "track") {
++      const track = await appleSong(link.id);
++      if (!track) throw new ProviderError("Apple Music couldn't find that song.", "not_found");
++      return { kind: "track", track };
++    }
++    return { kind: link.kind, provider: "apple", id: link.id };
++  }
+   return apiGet<ResolvedLink>("/api/resolve", { url: link.url });
+ }
+ 
+diff --git a/src/lib/providers/links.ts b/src/lib/providers/links.ts
+index a1ce243..147d3ad 100644
+--- a/src/lib/providers/links.ts
++++ b/src/lib/providers/links.ts
+@@ -14,7 +14,7 @@ const YT_ID = /^[A-Za-z0-9_-]{11}$/;
+ 
+ /**
+  * Recognises share links from the supported providers, including
+- * YouTube Music and Spotify URIs.
++ * YouTube Music, Spotify URIs and Apple Music song links.
+  */
+ export function parseMusicLink(input: string): ParsedLink | null {
+   const text = input.trim();
+@@ -57,6 +57,18 @@ export function parseMusicLink(input: string): ParsedLink | null {
+     return null;
+   }
+ 
++  if (host === "music.apple.com") {
++    // /{storefront}/{album|playlist|artist|song}/{slug}/{id}?i={songId}
++    const [, kind, ...rest] = parts;
++    const id = rest[rest.length - 1];
++    const songId = u.searchParams.get("i");
++    if (kind === "album" && songId) return apple("track", songId, u);
++    if (kind === "song" && id) return apple("track", id, u);
++    if (kind === "album" && id) return apple("album", id, u);
++    if (kind === "artist" && id) return apple("artist", id, u);
++    if (kind === "playlist" && id) return apple("playlist", id, u);
++    return null;
++  }
+   return null;
+ }
+ 
+@@ -70,8 +82,12 @@ function yt(kind: LinkKind, id: string): ParsedLink {
+   return { provider: "youtube", kind, id, url };
+ }
+ 
++function apple(kind: LinkKind, id: string, u: URL): ParsedLink {
++  return { provider: "apple", kind, id, url: u.toString() };
++}
++
+ export function looksLikeLink(input: string) {
+-  return /^(https?:\/\/|spotify:|(www\.|music\.)?(youtube\.com|youtu\.be|open\.spotify\.com)\/)/i.test(
++  return /^(https?:\/\/|spotify:|(www\.|music\.)?(youtube\.com|youtu\.be|open\.spotify\.com|music\.apple\.com)\/)/i.test(
+     input.trim(),
+   );
+ }
+diff --git a/src/lib/server/env.ts b/src/lib/server/env.ts
+index 96d4e34..8f8dea2 100644
+--- a/src/lib/server/env.ts
++++ b/src/lib/server/env.ts
+@@ -4,6 +4,9 @@ export type EnvName =
+   | "SPOTIFY_CLIENT_ID"
+   | "SPOTIFY_CLIENT_SECRET"
+   | "SPOTIFY_REDIRECT_URI"
++  | "APPLE_MUSIC_TEAM_ID"
++  | "APPLE_MUSIC_KEY_ID"
++  | "APPLE_MUSIC_PRIVATE_KEY"
+   | "SESSION_SECRET"
+   | "ALLOWED_ORIGINS";
+ 
+@@ -30,4 +33,5 @@ export const providersConfigured = () => ({
+   youtube: !!env("YOUTUBE_API_KEY"),
+   spotify: true, // wolfXspotify read-only catalogue requires no credentials
+   spotifyLogin: !!(env("SPOTIFY_CLIENT_ID") && env("SPOTIFY_CLIENT_SECRET") && env("SESSION_SECRET")),
++  apple: !!(env("APPLE_MUSIC_TEAM_ID") && env("APPLE_MUSIC_KEY_ID") && env("APPLE_MUSIC_PRIVATE_KEY")),
+ });
+diff --git a/src/lib/server/oembed.ts b/src/lib/server/oembed.ts
+index f01a420..e322b93 100644
+--- a/src/lib/server/oembed.ts
++++ b/src/lib/server/oembed.ts
+@@ -117,5 +117,6 @@ export async function resolveLink(link: ParsedLink): Promise<Resolved> {
+     };
+   }
+ 
+-  throw new ApiError(400, "bad_request", "That link isn't supported.");
++  // Apple Music links are resolved in the browser through MusicKit.
++  throw new ApiError(400, "bad_request", "Apple Music links are opened with MusicKit in the browser.");
+ }
+diff --git a/src/lib/server/routes.ts b/src/lib/server/routes.ts
+index 2dfe153..2a46ff9 100644
+--- a/src/lib/server/routes.ts
++++ b/src/lib/server/routes.ts
+@@ -1,6 +1,7 @@
+ // Server code and everything it imports use relative paths (no "@/" alias), so the Pages Function
+ // bundles the same way with any Wrangler version.
+ import { parseMusicLink } from "../providers/links";
++import { developerToken } from "./apple";
+ import { deleteCookie, getCookie, setCookie } from "./cookies";
+ import { bindEnv, env, providersConfigured } from "./env";
+ import { ApiError, errorJson, json, requireParam, sameOrigin } from "./http";
+@@ -12,8 +13,8 @@ import * as youtube from "./youtube";
+ 
+ /**
+  * The server side of Spotube Web: a handful of endpoints under /api that need
+- * a secret (provider API keys, the Spotify client secret). They return
+- * metadata only; audio is never fetched or proxied.
++ * a secret (provider API keys, the Spotify client secret, the Apple MusicKit
++ * key). They return metadata only; audio is never fetched or proxied.
+  *
+  * Served by the Cloudflare Pages Function in `functions/api/[[path]].ts`.
+  */
+@@ -40,7 +41,7 @@ const get: Record<string, Handler> = {
+   resolve: async (req, url) => {
+     sameOrigin(req);
+     const link = parseMusicLink(requireParam(url, "url"));
+-    if (!link) throw new ApiError(400, "bad_request", "That isn't a YouTube or Spotify link.");
++    if (!link) throw new ApiError(400, "bad_request", "That isn't a YouTube, Spotify or Apple Music link.");
+     return json(await resolveLink(link), { maxAge: 3600 });
+   },
+ 
+@@ -64,6 +65,15 @@ const get: Record<string, Handler> = {
+     return json(await youtube.trending(region && /^[A-Za-z]{2}$/.test(region) ? region : undefined), { maxAge: 3 * 3600 });
+   },
+ 
++  /**
++   * MusicKit developer token. It is designed to be used by browsers; it is
++   * short-lived and can be restricted to this site's origin with ALLOWED_ORIGINS.
++   */
++  "apple/token": async (req) => {
++    sameOrigin(req);
++    return json(await developerToken());
++  },
++
+   /** Read-only Spotify catalog proxy for visitors who haven't connected an account. */
+   "spotify/catalog": async (req, url) => {
+     sameOrigin(req);
+diff --git a/src/lib/settings.ts b/src/lib/settings.ts
+index ccd8107..d9d0b67 100644
+--- a/src/lib/settings.ts
++++ b/src/lib/settings.ts
+@@ -27,6 +27,7 @@ export interface Settings {
+   // Providers
+   enabledProviders: Record<ProviderId, boolean>;
+   preferredProvider: ProviderId;
++  appleStorefront: string;
+   spotifyPlayback: "auto" | "embed";
+   // Playback
+   autoplayNext: boolean;
+@@ -48,8 +49,9 @@ export const DEFAULT_SETTINGS: Settings = {
+   accent: "green",
+   compactLists: false,
+   reduceMotion: false,
+-  enabledProviders: { youtube: true, spotify: true },
++  enabledProviders: { youtube: true, spotify: true, apple: true },
+   preferredProvider: "youtube",
++  appleStorefront: "us",
+   spotifyPlayback: "auto",
+   autoplayNext: true,
+   resumeLongTracks: true,
+diff --git a/src/lib/types.ts b/src/lib/types.ts
+index 6f25258..de3873d 100644
+--- a/src/lib/types.ts
++++ b/src/lib/types.ts
+@@ -4,7 +4,7 @@
+  * flattened for the browser.
+  */
+ 
+-export const PROVIDER_IDS = ["youtube", "spotify"] as const;
++export const PROVIDER_IDS = ["youtube", "spotify", "apple"] as const;
+ export type ProviderId = (typeof PROVIDER_IDS)[number];
+ 
+ export interface ArtistRef {
+@@ -97,11 +97,11 @@ export const artistNames = (t: { artists: ArtistRef[] }) =>
+ export const PROVIDER_LABELS: Record<ProviderId, string> = {
+   youtube: "YouTube",
+   spotify: "Spotify",
++  apple: "Apple Music",
+ };
+ 
+ /** Services parked in disabled-providers/. Songs saved from them stay in the library but can't play. */
+ const PARKED_LABELS: Record<string, string> = {
+-  apple: "Apple Music",
+   soundcloud: "SoundCloud",
+ };
+ 

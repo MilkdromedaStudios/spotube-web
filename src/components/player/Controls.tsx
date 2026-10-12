@@ -16,12 +16,24 @@ import {
   usePlayer,
 } from "@/lib/player/engine";
 import { formatTime } from "@/lib/player/queue";
+import { PROVIDER_LABELS } from "@/lib/types";
+
+/** The current song's own player (e.g. Spotify's) has the play button; the site can't tell if it's playing. */
+export function useProviderControls(): string | null {
+  return usePlayer((s) => {
+    const t = s.queue[s.index];
+    return s.providerControls && t ? PROVIDER_LABELS[t.provider] : null;
+  });
+}
 
 export function PlayPauseButton({ size = "md" }: { size?: "md" | "lg" }) {
+  const providerControls = useProviderControls();
   const status = usePlayer((s) => s.status);
   const hasTrack = usePlayer((s) => s.index >= 0);
   const busy = status === "loading" || status === "buffering";
   const playing = status === "playing" || busy;
+  // Showing Play here would contradict a song that's playing in the provider's player.
+  if (providerControls) return null;
   return (
     <button
       type="button"
@@ -73,6 +85,7 @@ export function TransportControls({ size = "md" }: { size?: "md" | "lg" }) {
 }
 
 export function SeekBar({ className }: { className?: string }) {
+  const providerControls = useProviderControls();
   const position = usePlayer((s) => s.positionMs);
   const duration = usePlayer((s) => s.durationMs);
   const canSeek = usePlayer((s) => s.canSeek);
@@ -81,6 +94,12 @@ export function SeekBar({ className }: { className?: string }) {
   const value = drag ?? position;
   const max = duration && duration > 0 ? duration : 0;
   const pct = max ? Math.min(100, (value / max) * 100) : 0;
+  if (providerControls)
+    return (
+      <p className={clsx("w-full text-center text-xs text-muted", className)} role="status">
+        Use the play button in the {providerControls} player.
+      </p>
+    );
   return (
     <div className={clsx("flex w-full items-center gap-2 text-xs tabular-nums text-muted", className)}>
       <span className="w-10 text-right">{hasTrack ? formatTime(value) : "--:--"}</span>

@@ -49,14 +49,7 @@ export async function savePlaylistLink(link: ParsedLink, providerReady: boolean)
     ({ name, artwork } = r.album);
     tracks = r.tracks;
   } else if (providerReady && link.kind === "playlist") {
-    let id = link.id;
-    if (link.provider === "soundcloud") {
-      // SoundCloud links are permalinks; the API wants the numeric playlist id.
-      const r = await resolveLink(link.url);
-      if (r.kind !== "playlist") throw new ProviderError("That SoundCloud link isn't a playlist.", "bad_request");
-      id = r.id;
-    }
-    const r = await client.playlist(id);
+    const r = await client.playlist(link.id);
     ({ name, artwork } = r.playlist);
     tracks = r.tracks;
   }
@@ -65,7 +58,7 @@ export async function savePlaylistLink(link: ParsedLink, providerReady: boolean)
     if (r.kind !== "track") throw new ProviderError(CONFIG_HINT[link.provider], "not_configured");
     name = r.track.title;
     artwork = r.track.artwork;
-    // YouTube playlists and SoundCloud sets are saved song by song; Spotify playlists stay one item.
+    // YouTube playlists are saved song by song; Spotify playlists stay one item.
     const songs = await expandCollection(r.track).catch(() => null);
     tracks = songs?.length ? songs : [r.track];
   }

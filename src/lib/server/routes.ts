@@ -1,21 +1,19 @@
 // Server code and everything it imports use relative paths (no "@/" alias), so the Pages Function
 // bundles the same way with any Wrangler version.
 import { parseMusicLink } from "../providers/links";
-import { developerToken } from "./apple";
 import { deleteCookie, getCookie, setCookie } from "./cookies";
 import { bindEnv, env, providersConfigured } from "./env";
 import { ApiError, errorJson, json, requireParam, sameOrigin } from "./http";
 import { resolveLink } from "./oembed";
 import { parseTypes } from "./params";
 import { randomToken, seal, unseal } from "./seal";
-import * as soundcloud from "./soundcloud";
 import { SESSION_COOKIE, STATE_COOKIE, authorizeUrl, catalog, exchangeCode, redirectUri, refresh } from "./spotify";
 import * as youtube from "./youtube";
 
 /**
  * The server side of Spotube Web: a handful of endpoints under /api that need
- * a secret (provider API keys, the Spotify client secret, the Apple MusicKit
- * key). They return metadata only; audio is never fetched or proxied.
+ * a secret (provider API keys, the Spotify client secret). They return
+ * metadata only; audio is never fetched or proxied.
  *
  * Served by the Cloudflare Pages Function in `functions/api/[[path]].ts`.
  */
@@ -42,7 +40,7 @@ const get: Record<string, Handler> = {
   resolve: async (req, url) => {
     sameOrigin(req);
     const link = parseMusicLink(requireParam(url, "url"));
-    if (!link) throw new ApiError(400, "bad_request", "That isn't a YouTube, Spotify, SoundCloud or Apple Music link.");
+    if (!link) throw new ApiError(400, "bad_request", "That isn't a YouTube or Spotify link.");
     return json(await resolveLink(link), { maxAge: 3600 });
   },
 
@@ -64,29 +62,6 @@ const get: Record<string, Handler> = {
     sameOrigin(req);
     const region = url.searchParams.get("region") ?? undefined;
     return json(await youtube.trending(region && /^[A-Za-z]{2}$/.test(region) ? region : undefined), { maxAge: 3 * 3600 });
-  },
-
-  "soundcloud/search": async (req, url) => {
-    sameOrigin(req);
-    const offset = Math.max(0, Math.min(1000, Number(url.searchParams.get("offset")) || 0));
-    return json(await soundcloud.search(requireParam(url, "q"), parseTypes(url), offset), { maxAge: 1800 });
-  },
-  "soundcloud/playlist": async (req, url) => {
-    sameOrigin(req);
-    return json(await soundcloud.playlist(requireParam(url, "id", /^\d+$/)), { maxAge: 1800 });
-  },
-  "soundcloud/user": async (req, url) => {
-    sameOrigin(req);
-    return json(await soundcloud.user(requireParam(url, "id", /^\d+$/)), { maxAge: 1800 });
-  },
-
-  /**
-   * MusicKit developer token. It is designed to be used by browsers; it is
-   * short-lived and can be restricted to this site's origin with ALLOWED_ORIGINS.
-   */
-  "apple/token": async (req) => {
-    sameOrigin(req);
-    return json(await developerToken());
   },
 
   /** Read-only Spotify catalog proxy for visitors who haven't connected an account. */

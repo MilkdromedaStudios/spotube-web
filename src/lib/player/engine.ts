@@ -1,11 +1,9 @@
 "use client";
 
 import { create } from "zustand";
-import { AppleMusicAdapter } from "./adapters/apple";
-import { SoundCloudAdapter } from "./adapters/soundcloud";
-import { SpotifyEmbedAdapter, SpotifySdkAdapter } from "./adapters/spotify";
+import { preloadSpotifyEmbed, SpotifyEmbedAdapter, SpotifySdkAdapter } from "./adapters/spotify";
 import type { AdapterError, AdapterState, PlaybackAdapter } from "./adapters/types";
-import { YouTubeAdapter } from "./adapters/youtube";
+import { loadApi as loadYouTubeApi, YouTubeAdapter } from "./adapters/youtube";
 import { nextIndex, previousIndex, shuffled } from "./queue";
 import { collectionKind } from "@/lib/collections";
 import { getDb } from "@/lib/db/db";
@@ -23,7 +21,7 @@ import type { PlayerStateRecord, RepeatMode } from "@/lib/db/schema";
 import { useSpotifyAuth } from "@/lib/providers/spotify";
 import { getSettings } from "@/lib/settings";
 import { toast } from "@/lib/toast";
-import { PROVIDER_LABELS, type ProviderId, type Track } from "@/lib/types";
+import { isProviderId, PROVIDER_LABELS, type ProviderId, type Track } from "@/lib/types";
 
 export type PlayerStatus = "idle" | "loading" | "playing" | "paused" | "buffering" | "error";
 
@@ -41,6 +39,10 @@ export interface PlayerState {
   shuffle: boolean;
   error?: string;
   notice?: string;
+  /** The provider is only playing a short preview (Spotify when the listener isn't signed in). */
+  preview?: boolean;
+  /** The provider's own player buttons are the controls; the site can't tell if it is playing. */
+  providerControls?: boolean;
   /** Name of the official player currently in use */
   engine?: string;
   canSeek: boolean;
@@ -88,10 +90,9 @@ function make(kind: string): PlaybackAdapter {
     onError: (e: AdapterError) => a === current && onAdapterError(e),
   };
   if (kind === "youtube") a = new YouTubeAdapter(events);
-  else if (kind === "soundcloud") a = new SoundCloudAdapter(events);
   else if (kind === "spotify-sdk") a = new SpotifySdkAdapter(events);
   else if (kind === "spotify-embed") a = new SpotifyEmbedAdapter(events);
-  else a = new AppleMusicAdapter(events);
+  else throw new Error(`No player for ${kind}.`);
   adapters.set(kind, a);
   return a;
 }
@@ -154,7 +155,7 @@ function onAdapterState(s: AdapterState) {
   const durationMs = s.durationMs && s.durationMs > 0 ? s.durationMs : (get().durationMs ?? track.durationMs);
   // In a collection the reported duration is the current song's, not the item's.
   const collection = !!collectionKind(track);
-  if (!collection && s.durationMs && s.durationMs > 1000 && (!track.durationMs || Math.abs(track.durationMs - s.durationMs) > 2000))
+  if (!collection && !s.preview && s.durationMs && s.durationMs > 1000 && (!track.durationMs || Math.abs(track.durationMs - s.durationMs) > 2000))
     void learnDuration(track.key, s.durationMs);
 
   if (s.status === "ended") {
@@ -170,6 +171,8 @@ function onAdapterState(s: AdapterState) {
     status: s.status === "loading" ? "loading" : s.status,
     positionMs,
     durationMs,
+    preview: !!s.preview,
+    providerControls: !!s.providerControls,
     error: undefined,
     ...(s.status === "playing" ? { notice: undefined } : {}),
   });
@@ -252,6 +255,14 @@ async function select(index: number, opts: { autoplay: boolean; startMs?: number
     if (r && r.positionMs > 30_000 && r.positionMs < (track.durationMs ?? 0) - 15_000) startMs = r.positionMs;
   }
 
+  // Songs saved from a music service this site has since dropped stay in the library but can't play.
+  if (!isProviderId(track.provider)) {
+    current?.stop();
+    loaded = false;
+    set({ index, status: "error", error: "This song is from a music service this site doesn't play anymore." });
+    return;
+  }
+
   if (!getSettings().enabledProviders[track.provider]) {
     current?.stop();
     loaded = false;
@@ -271,6 +282,8 @@ async function select(index: number, opts: { autoplay: boolean; startMs?: number
     durationMs: track.durationMs,
     error: undefined,
     notice: undefined,
+    preview: false,
+    providerControls: false,
     engine: adapter.name,
     canSeek: adapter.capabilities.seek,
     canSetVolume: adapter.capabilities.volume,
@@ -547,6 +560,37 @@ export async function initPlayer() {
     flushListening();
     persist(true);
   });
+  // Wait until the page has settled so preloading doesn't slow down the first screen.
+  if ("requestIdleCallback" in window) window.requestIdleCallback(preloadPlayers, { timeout: 3000 });
+  else setTimeout(preloadPlayers, 1500);
+}
+
+/**
+ * Reloads Spotify's player, for example after the listener signed in to Spotify in another tab,
+ * so it plays full songs instead of previews. The current Spotify song continues where it was.
+ */
+export function refreshSpotifyPlayer() {
+  (adapters.get("spotify-embed") as SpotifyEmbedAdapter | undefined)?.reset();
+  const s = get();
+  if (!loaded || !(current instanceof SpotifyEmbedAdapter) || s.queue[s.index]?.provider !== "spotify") return;
+  const wasPlaying = s.status === "playing" || s.status === "loading" || s.status === "buffering";
+  void select(s.index, { autoplay: wasPlaying, startMs: s.positionMs });
+}
+
+/**
+ * Loads the official players in the background so songs start sooner, and gets the restored
+ * song's player ready so pressing Play starts it right away.
+ */
+function preloadPlayers() {
+  const settings = getSettings();
+  if (!settings.preloadPlayers) return;
+  if (settings.enabledProviders.spotify) preloadSpotifyEmbed();
+  if (settings.enabledProviders.youtube) loadYouTubeApi().catch(() => {});
+  const s = get();
+  const track = s.queue[s.index];
+  if (!loaded && track && (track.provider === "spotify" || track.provider === "youtube") && settings.enabledProviders[track.provider]) {
+    void select(s.index, { autoplay: false, startMs: pendingStartMs });
+  }
 }
 
 /** Jumps to a track that is already in the queue. */

@@ -11,7 +11,6 @@ import type { ProviderId } from "@/lib/types";
 export function ProviderGate({ provider, children }: { provider: ProviderId; children: ReactNode }) {
   const loaded = useServerConfig((s) => s.loaded);
   const status = useProviderStatuses().find((s) => s.id === provider)!;
-  // Apple Music is configured client-side through MusicKit, but still needs the server's developer token.
   if (!loaded) return <LoadingState label="Checking provider…" />;
   if (!status.ready)
     return (

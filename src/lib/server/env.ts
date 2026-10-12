@@ -4,11 +4,6 @@ export type EnvName =
   | "SPOTIFY_CLIENT_ID"
   | "SPOTIFY_CLIENT_SECRET"
   | "SPOTIFY_REDIRECT_URI"
-  | "SOUNDCLOUD_CLIENT_ID"
-  | "SOUNDCLOUD_CLIENT_SECRET"
-  | "APPLE_MUSIC_TEAM_ID"
-  | "APPLE_MUSIC_KEY_ID"
-  | "APPLE_MUSIC_PRIVATE_KEY"
   | "SESSION_SECRET"
   | "ALLOWED_ORIGINS";
 
@@ -35,6 +30,4 @@ export const providersConfigured = () => ({
   youtube: !!env("YOUTUBE_API_KEY"),
   spotify: true, // wolfXspotify read-only catalogue requires no credentials
   spotifyLogin: !!(env("SPOTIFY_CLIENT_ID") && env("SPOTIFY_CLIENT_SECRET") && env("SESSION_SECRET")),
-  soundcloud: !!(env("SOUNDCLOUD_CLIENT_ID") && env("SOUNDCLOUD_CLIENT_SECRET")),
-  apple: !!(env("APPLE_MUSIC_TEAM_ID") && env("APPLE_MUSIC_KEY_ID") && env("APPLE_MUSIC_PRIVATE_KEY")),
 });

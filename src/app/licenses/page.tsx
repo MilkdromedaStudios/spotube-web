@@ -23,7 +23,7 @@ export default function LicensesPage() {
         </p>
         <iframe title="BSD-4-Clause license" src="/LICENSE.txt" className="h-[28rem] w-full rounded-xl border border-line bg-white" />
         <p>
-          YouTube, Spotify, SoundCloud and Apple Music are trademarks of their respective owners. Spotube Web uses their official
+          YouTube and Spotify are trademarks of their respective owners. Spotube Web uses their official
           APIs and players and is not affiliated with them.
         </p>
         <Link href="/settings#about" className="underline">

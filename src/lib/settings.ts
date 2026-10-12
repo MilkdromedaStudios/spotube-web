@@ -3,7 +3,7 @@
 import { create } from "zustand";
 import { getDb } from "@/lib/db/db";
 import { write } from "@/lib/db/library";
-import type { ProviderId } from "@/lib/types";
+import { isProviderId, type ProviderId } from "@/lib/types";
 
 export const ACCENTS = {
   slate: { label: "Slate", color: "#94a3b8" },
@@ -27,13 +27,14 @@ export interface Settings {
   // Providers
   enabledProviders: Record<ProviderId, boolean>;
   preferredProvider: ProviderId;
-  appleStorefront: string;
   spotifyPlayback: "auto" | "embed";
   // Playback
   autoplayNext: boolean;
   resumeLongTracks: boolean;
   skipOnError: boolean;
   mediaSession: boolean;
+  /** Load the Spotify and YouTube players when the site opens, so songs start sooner. */
+  preloadPlayers: boolean;
   // Privacy
   youtubePrivacyMode: boolean;
   loadArtwork: boolean;
@@ -47,14 +48,14 @@ export const DEFAULT_SETTINGS: Settings = {
   accent: "green",
   compactLists: false,
   reduceMotion: false,
-  enabledProviders: { youtube: true, spotify: true, soundcloud: true, apple: true },
+  enabledProviders: { youtube: true, spotify: true },
   preferredProvider: "youtube",
-  appleStorefront: "us",
   spotifyPlayback: "auto",
   autoplayNext: true,
   resumeLongTracks: true,
   skipOnError: true,
   mediaSession: true,
+  preloadPlayers: true,
   youtubePrivacyMode: true,
   loadArtwork: true,
   recordHistory: true,
@@ -105,6 +106,8 @@ export function mergeSettings(stored: Partial<Settings>): Settings {
       key === "enabledProviders" ? { ...DEFAULT_SETTINGS.enabledProviders, ...(v as object) } : v;
   }
   if (!(out.accent in ACCENTS)) out.accent = DEFAULT_SETTINGS.accent;
+  // A music service that has been taken out of the site can't stay the default.
+  if (!isProviderId(out.preferredProvider)) out.preferredProvider = DEFAULT_SETTINGS.preferredProvider;
   return out;
 }
 
