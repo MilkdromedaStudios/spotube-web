@@ -22,6 +22,13 @@ export const viewport: Viewport = {
 export default function RootLayout({ children }: { children: React.ReactNode }) {
   return (
     <html lang="en" data-theme="dark" suppressHydrationWarning>
+      <head>
+        {/* Connect to the official players early so the first song starts sooner. */}
+        <link rel="preconnect" href="https://open.spotify.com" />
+        <link rel="preconnect" href="https://embed-cdn.spotifycdn.com" />
+        <link rel="preconnect" href="https://www.youtube.com" />
+        <link rel="preconnect" href="https://www.youtube-nocookie.com" />
+      </head>
       <body>
         <AppShell>{children}</AppShell>
       </body>

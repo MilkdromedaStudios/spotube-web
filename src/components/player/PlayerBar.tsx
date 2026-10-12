@@ -3,7 +3,7 @@
 import clsx from "clsx";
 import { AlertCircle, ListMusic, Maximize2, Megaphone } from "lucide-react";
 import Link from "next/link";
-import { PlayPauseButton, SeekBar, TransportControls, VolumeControl } from "./Controls";
+import { PlayPauseButton, SeekBar, TransportControls, useProviderControls, VolumeControl } from "./Controls";
 import { Artwork } from "@/components/Artwork";
 import { LikeButton } from "@/components/TrackList";
 import { ProviderBadge } from "@/components/ProviderBadge";
@@ -40,6 +40,9 @@ export function PlayerBar() {
   const loading = usePlayer((s) => s.status === "loading");
   /** One short line about what the player is doing, when there's something to say. */
   const message = error ?? notice ?? (loading ? "Loading…" : undefined);
+  const providerControls = useProviderControls();
+  /** The phone layout has no seek bar, so it carries the "use the provider's buttons" hint itself. */
+  const mobileMessage = message ?? (providerControls ? `Use the play button in the ${providerControls} player.` : undefined);
   const queueOpen = usePlayer((s) => s.queueOpen);
   const position = usePlayer((s) => s.positionMs);
   const duration = usePlayer((s) => s.durationMs);
@@ -63,8 +66,8 @@ export function PlayerBar() {
             <span className="min-w-0">
               <span className="block truncate text-sm font-medium">{track?.title ?? "Nothing playing"}</span>
               <span className="block truncate text-xs text-muted">
-                {message ? (
-                  <span className={error ? "text-danger" : undefined}>{message}</span>
+                {mobileMessage ? (
+                  <span className={error ? "text-danger" : undefined}>{mobileMessage}</span>
                 ) : track ? (
                   artistNames(track)
                 ) : (

@@ -3,9 +3,9 @@
 import { create } from "zustand";
 import { AppleMusicAdapter } from "./adapters/apple";
 import { SoundCloudAdapter } from "./adapters/soundcloud";
-import { SpotifyEmbedAdapter, SpotifySdkAdapter } from "./adapters/spotify";
+import { preloadSpotifyEmbed, SpotifyEmbedAdapter, SpotifySdkAdapter } from "./adapters/spotify";
 import type { AdapterError, AdapterState, PlaybackAdapter } from "./adapters/types";
-import { YouTubeAdapter } from "./adapters/youtube";
+import { loadApi as loadYouTubeApi, YouTubeAdapter } from "./adapters/youtube";
 import { nextIndex, previousIndex, shuffled } from "./queue";
 import { collectionKind } from "@/lib/collections";
 import { getDb } from "@/lib/db/db";
@@ -41,6 +41,10 @@ export interface PlayerState {
   shuffle: boolean;
   error?: string;
   notice?: string;
+  /** The provider is only playing a short preview (Spotify when the listener isn't signed in). */
+  preview?: boolean;
+  /** The provider's own player buttons are the controls; the site can't tell if it is playing. */
+  providerControls?: boolean;
   /** Name of the official player currently in use */
   engine?: string;
   canSeek: boolean;
@@ -154,7 +158,7 @@ function onAdapterState(s: AdapterState) {
   const durationMs = s.durationMs && s.durationMs > 0 ? s.durationMs : (get().durationMs ?? track.durationMs);
   // In a collection the reported duration is the current song's, not the item's.
   const collection = !!collectionKind(track);
-  if (!collection && s.durationMs && s.durationMs > 1000 && (!track.durationMs || Math.abs(track.durationMs - s.durationMs) > 2000))
+  if (!collection && !s.preview && s.durationMs && s.durationMs > 1000 && (!track.durationMs || Math.abs(track.durationMs - s.durationMs) > 2000))
     void learnDuration(track.key, s.durationMs);
 
   if (s.status === "ended") {
@@ -170,6 +174,8 @@ function onAdapterState(s: AdapterState) {
     status: s.status === "loading" ? "loading" : s.status,
     positionMs,
     durationMs,
+    preview: !!s.preview,
+    providerControls: !!s.providerControls,
     error: undefined,
     ...(s.status === "playing" ? { notice: undefined } : {}),
   });
@@ -271,6 +277,8 @@ async function select(index: number, opts: { autoplay: boolean; startMs?: number
     durationMs: track.durationMs,
     error: undefined,
     notice: undefined,
+    preview: false,
+    providerControls: false,
     engine: adapter.name,
     canSeek: adapter.capabilities.seek,
     canSetVolume: adapter.capabilities.volume,
@@ -547,6 +555,37 @@ export async function initPlayer() {
     flushListening();
     persist(true);
   });
+  // Wait until the page has settled so preloading doesn't slow down the first screen.
+  if ("requestIdleCallback" in window) window.requestIdleCallback(preloadPlayers, { timeout: 3000 });
+  else setTimeout(preloadPlayers, 1500);
+}
+
+/**
+ * Reloads Spotify's player, for example after the listener signed in to Spotify in another tab,
+ * so it plays full songs instead of previews. The current Spotify song continues where it was.
+ */
+export function refreshSpotifyPlayer() {
+  (adapters.get("spotify-embed") as SpotifyEmbedAdapter | undefined)?.reset();
+  const s = get();
+  if (!loaded || !(current instanceof SpotifyEmbedAdapter) || s.queue[s.index]?.provider !== "spotify") return;
+  const wasPlaying = s.status === "playing" || s.status === "loading" || s.status === "buffering";
+  void select(s.index, { autoplay: wasPlaying, startMs: s.positionMs });
+}
+
+/**
+ * Loads the official players in the background so songs start sooner, and gets the restored
+ * song's player ready so pressing Play starts it right away.
+ */
+function preloadPlayers() {
+  const settings = getSettings();
+  if (!settings.preloadPlayers) return;
+  if (settings.enabledProviders.spotify) preloadSpotifyEmbed();
+  if (settings.enabledProviders.youtube) loadYouTubeApi().catch(() => {});
+  const s = get();
+  const track = s.queue[s.index];
+  if (!loaded && track && (track.provider === "spotify" || track.provider === "youtube") && settings.enabledProviders[track.provider]) {
+    void select(s.index, { autoplay: false, startMs: pendingStartMs });
+  }
 }
 
 /** Jumps to a track that is already in the queue. */

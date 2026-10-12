@@ -34,6 +34,14 @@ const EMBED_API_URL = "https://open.spotify.com/embed/iframe-api/v1";
 let embedApi: EmbedApi | null = null;
 let embedApiArrival: Promise<EmbedApi> | null = null;
 
+/** Starts loading Spotify's player in the background so the first song starts sooner. */
+export function preloadSpotifyEmbed() {
+  loadEmbedApi(30000).catch(() => {});
+}
+
+/** Spotify's player plays 30-second previews to listeners who aren't signed in to Spotify in this browser. */
+const PREVIEW_MS = 30000;
+
 function loadEmbedApi(timeoutMs = 8000): Promise<EmbedApi> {
   if (embedApi) return Promise.resolve(embedApi);
   embedApiArrival ??= new Promise<EmbedApi>((resolve) => {
@@ -78,10 +86,14 @@ export class SpotifyEmbedAdapter implements PlaybackAdapter {
   private kick: ReturnType<typeof setTimeout> | null = null;
   private attempts = 0;
   private pendingSeek = 0;
+  /** The embed has talked to this page, so its play/pause reports can be trusted. */
+  private gotReady = false;
   /** Albums, playlists and artists play in the taller embed, which lists and steps through their songs. */
   private collection = false;
   private height = 0;
   private uri = "";
+  /** The song's full length from its details, to tell a 30-second preview apart. */
+  private trackMs = 0;
   /** Increases on every load so a slower, older load can't replace the current player. */
   private seq = 0;
   private fallbackFrame: HTMLIFrameElement | null = null;
@@ -116,11 +128,8 @@ export class SpotifyEmbedAdapter implements PlaybackAdapter {
     );
     host.appendChild(frame);
     this.fallbackFrame = frame;
-    this.events.onState({ status: "paused", positionMs: 0 });
-    this.events.onError({
-      message: "Tap play in the Spotify player to start.",
-      fatal: false, notice: true,
-    });
+    // This player can't report what it's doing, so its own buttons are the controls.
+    this.events.onState({ status: "paused", positionMs: 0, providerControls: true });
   }
 
   private async ensure(uri: string, seq: number): Promise<boolean> {
@@ -154,11 +163,15 @@ export class SpotifyEmbedAdapter implements PlaybackAdapter {
       throw new Error("superseded");
     }
     this.controller = controller;
+    this.gotReady = false;
     controller.addListener("ready", () => {
-      if (controller === this.controller && this.wantPlay && !this.started) this.start();
+      if (controller !== this.controller) return;
+      this.gotReady = true;
+      if (this.wantPlay && !this.started) this.start();
     });
     controller.addListener("playback_update", (e) => {
       if (controller !== this.controller) return;
+      this.gotReady = true;
       const d = e.data as { isPaused: boolean; isBuffering: boolean; duration: number; position: number };
       this.last = { position: d.position, duration: d.duration };
       if (!d.isPaused && this.kick) {
@@ -171,19 +184,57 @@ export class SpotifyEmbedAdapter implements PlaybackAdapter {
         this.pendingSeek = 0;
         this.controller?.seek(s / 1000);
       }
-      if (d.isBuffering) return this.events.onState({ status: "buffering", positionMs: d.position, durationMs: d.duration });
+      const preview = this.isPreview(d.duration);
+      if (d.isBuffering) return this.events.onState({ status: "buffering", positionMs: d.position, durationMs: d.duration, preview });
       if (!d.isPaused) {
         this.playing = true;
         this.started = true;
         this.clearTimers();
-        return this.events.onState({ status: "playing", positionMs: d.position, durationMs: d.duration });
+        return this.events.onState({ status: "playing", positionMs: d.position, durationMs: d.duration, preview });
       }
       // In a collection the embed moves on to the next song itself, so one song ending isn't the end.
       const ended = !this.collection && this.playing && d.duration > 0 && d.position >= d.duration - 750;
       this.playing = false;
-      this.events.onState({ status: ended ? "ended" : "paused", positionMs: d.position, durationMs: d.duration });
+      this.events.onState({ status: ended ? "ended" : "paused", positionMs: d.position, durationMs: d.duration, preview });
     });
     return true;
+  }
+
+  /**
+   * Spotify reports a preview as a song about 30 seconds long. When the song's real length is known
+   * that settles it; otherwise a length of almost exactly 30 seconds is taken as a preview.
+   */
+  private isPreview(durationMs: number): boolean {
+    if (!(durationMs > 0) || Math.abs(durationMs - PREVIEW_MS) > 1500) return false;
+    return this.collection || !this.trackMs ? true : this.trackMs > PREVIEW_MS + 5000;
+  }
+
+  /**
+   * Drops the current Spotify player so the next song loads a fresh one. Used after the
+   * listener signs in to Spotify, because a player opened before that still plays previews.
+   */
+  reset() {
+    this.wantPlay = false;
+    this.clearTimers();
+    this.controller?.destroy();
+    this.controller = null;
+    if (this.fallbackFrame) this.fallbackFrame.remove();
+    this.fallbackFrame = null;
+    this.height = 0;
+    this.seq++;
+  }
+
+  /** Called when a song that should be playing hasn't started after a while. */
+  private notStarted() {
+    if (this.playing) return;
+    if (!this.gotReady) {
+      // The embed never reported back, so this page can't know whether it plays: let its own buttons lead.
+      this.events.onState({ status: "paused", positionMs: this.last.position, providerControls: true });
+      return;
+    }
+    // The embed is working but the browser blocked autoplay. Its play button will start the song, and
+    // the embed tells this page when it does.
+    this.events.onError({ message: "Tap play in the Spotify player to start.", fatal: false, notice: true });
   }
 
   private clearTimers() {
@@ -221,6 +272,7 @@ export class SpotifyEmbedAdapter implements PlaybackAdapter {
     const uri = uriFor(track);
     const seq = ++this.seq;
     this.uri = uri;
+    this.trackMs = track.durationMs ?? 0;
     this.collection = !!collectionKind(track);
     this.wantPlay = opts.autoplay;
     this.playing = false;
@@ -239,10 +291,7 @@ export class SpotifyEmbedAdapter implements PlaybackAdapter {
       this.scheduleStart(created ? 3000 : 800);
       // The player bar shows "Loading…" until the song starts. If the browser blocks autoplay, it
       // switches to paused with this message instead of staying on "Loading…".
-      this.nudge = setTimeout(() => {
-        if (!this.playing)
-          this.events.onError({ message: "Tap play in the Spotify player to start.", fatal: false, notice: true });
-      }, 5000);
+      this.nudge = setTimeout(() => this.notStarted(), 5000);
     } catch {
       if (seq !== this.seq) return;
       // The official iframe needs no JS handshake; it is the final fallback
@@ -279,6 +328,8 @@ export class SpotifyEmbedAdapter implements PlaybackAdapter {
     // Nothing has played yet (the browser blocked autoplay): start the song.
     this.attempts = 0;
     this.start();
+    if (this.nudge) clearTimeout(this.nudge);
+    this.nudge = setTimeout(() => this.notStarted(), 3500);
   }
   pause() {
     this.wantPlay = false;

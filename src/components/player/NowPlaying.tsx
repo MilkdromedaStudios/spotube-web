@@ -8,6 +8,7 @@ import { AD_NOTICE } from "./PlayerBar";
 import { QueueList } from "./QueuePanel";
 import { Artwork } from "@/components/Artwork";
 import { ProviderBadge } from "@/components/ProviderBadge";
+import { SpotifyPreviewPrompt } from "@/components/SpotifySignIn";
 import { LikeButton } from "@/components/TrackList";
 import { Button, IconButton } from "@/components/ui";
 import { useLikedKeys } from "@/hooks/useLibrary";
@@ -107,6 +108,7 @@ export function NowPlaying() {
               </Button>
             </div>
             {(error || notice) && <p className={`text-center text-sm ${error ? "text-danger" : "text-muted"}`}>{error ?? notice}</p>}
+            {track.provider === "spotify" && <SpotifyPreviewPrompt className="self-center text-center" />}
             {showAdNotices && AD_NOTICE[track.provider] && (
               <p className="text-center text-xs text-subtle">{AD_NOTICE[track.provider]}</p>
             )}

@@ -7,6 +7,7 @@ import { AD_NOTICE } from "./PlayerBar";
 import { QueueList } from "./QueuePanel";
 import { useSettings } from "@/lib/settings";
 import { PROVIDER_LABELS } from "@/lib/types";
+import { SpotifyPreviewPrompt } from "@/components/SpotifySignIn";
 
 /** Right-hand "now playing" column on large screens, hosting the official provider player. */
 export function StagePanel() {
@@ -24,8 +25,9 @@ export function StagePanel() {
         style={provider === "youtube" ? undefined : { height: stageHeight(provider, "panel", collection) }}
       />
       {showAdNotices && AD_NOTICE[provider] && <p className="text-xs text-subtle">{AD_NOTICE[provider]}</p>}
+      {provider === "spotify" && <SpotifyPreviewPrompt />}
       {provider === "spotify" && track?.url && (
-        <a className="text-xs text-accent hover:underline" href={track.url} target="_blank" rel="noopener noreferrer">
+        <a className="text-xs text-muted hover:text-fg hover:underline" href={track.url} target="_blank" rel="noopener noreferrer">
           Not playing? Open in Spotify ↗
         </a>
       )}
@@ -46,11 +48,7 @@ export function MobileDock() {
   return (
     <div className="shrink-0 border-t border-line bg-surface p-2 lg:hidden">
       <StageSlot priority={10} className="w-full" style={{ height: stageHeight(provider, "dock", collection) }} />
-      {provider === "spotify" && track?.url && (
-        <a className="mt-1 block text-center text-xs text-accent hover:underline" href={track.url} target="_blank" rel="noopener noreferrer">
-          Not playing? Open in Spotify ↗
-        </a>
-      )}
+      {provider === "spotify" && <SpotifyPreviewPrompt className="mt-1 block text-center" />}
     </div>
   );
 }

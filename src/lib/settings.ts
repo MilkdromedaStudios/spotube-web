@@ -34,6 +34,8 @@ export interface Settings {
   resumeLongTracks: boolean;
   skipOnError: boolean;
   mediaSession: boolean;
+  /** Load the Spotify and YouTube players when the site opens, so songs start sooner. */
+  preloadPlayers: boolean;
   // Privacy
   youtubePrivacyMode: boolean;
   loadArtwork: boolean;
@@ -55,6 +57,7 @@ export const DEFAULT_SETTINGS: Settings = {
   resumeLongTracks: true,
   skipOnError: true,
   mediaSession: true,
+  preloadPlayers: true,
   youtubePrivacyMode: true,
   loadArtwork: true,
   recordHistory: true,

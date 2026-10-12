@@ -6,6 +6,13 @@ export interface AdapterState {
   status: AdapterStatus;
   positionMs?: number;
   durationMs?: number;
+  /** The provider is only playing a short preview of the song (e.g. Spotify for signed-out listeners). */
+  preview?: boolean;
+  /**
+   * The provider's own player is in charge and this site can't tell whether it is playing, so the
+   * site hides its play button and seek bar instead of showing a state that may be wrong.
+   */
+  providerControls?: boolean;
 }
 
 export interface AdapterError {

@@ -20,6 +20,7 @@ import { ACCENTS, setSetting, useSettings, useSettingsStore, type Accent } from 
 import { toast } from "@/lib/toast";
 import { PROVIDER_IDS, PROVIDER_LABELS, type ProviderId } from "@/lib/types";
 import { useUi } from "@/lib/uiStore";
+import { signInButtonClass, SpotifySignInLink } from "@/components/SpotifySignIn";
 
 function Card({ id, icon, title, children }: { id: string; icon: ReactNode; title: string; children: ReactNode }) {
   return (
@@ -56,14 +57,18 @@ function SpotifyAccount() {
   const cfg = useServerConfig((s) => s.providers);
   const auth = useSpotifyAuth();
   const settings = useSettings();
-  if (!cfg.spotifyLogin)
-    return (
-      <p className="py-2 text-sm text-muted">
-        Connecting a Spotify account isn't set up on this site yet.
-      </p>
-    );
+  const signIn = (
+    <Row
+      label="Full Spotify songs"
+      description="Spotify plays 30-second previews unless you're signed in to Spotify in this browser. Sign in once (a free account works), then come back to this tab. Safari, Firefox and Brave may still play previews because they block Spotify's sign-in on other websites."
+    >
+      <SpotifySignInLink className={signInButtonClass}>Sign in to Spotify</SpotifySignInLink>
+    </Row>
+  );
+  if (!cfg.spotifyLogin) return signIn;
   return (
     <>
+      {signIn}
       <Row
         label="Spotify account"
         description={
@@ -446,12 +451,19 @@ function SettingsInner() {
           checked={settings.mediaSession}
           onChange={(v) => setSetting("mediaSession", v)}
         />
+        <Toggle
+          label="Get players ready in advance"
+          description="Loads the Spotify and YouTube players in the background when you open the site, so songs start faster."
+          checked={settings.preloadPlayers}
+          onChange={(v) => setSetting("preloadPlayers", v)}
+        />
       </Card>
 
       <Card id="privacy" icon={<Shield />} title="Privacy & ads">
         <Notice>
           Spotube Web shows no ads and doesn&apos;t track you. The only outside players it loads are the official YouTube, Spotify,
-          SoundCloud and Apple Music ones, and each loads only when you play something from it. <br />
+          SoundCloud and Apple Music ones. Spotify&apos;s and YouTube&apos;s load in the background when you open the site so songs start
+          faster; you can turn that off under Playback. <br />
           <br />
           Those players may show their own ads <strong>inside the player</strong> (for example YouTube, SoundCloud and Spotify Free).
           Spotube Web doesn&apos;t block or skip them, because that would break the services&apos; rules.
