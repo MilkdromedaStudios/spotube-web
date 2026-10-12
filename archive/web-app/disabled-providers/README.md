@@ -15,7 +15,7 @@ They can't play while the service is parked and play again once it's back.
 ## Putting a service back
 
 The easiest way is to ask Claude in this project, for example "Put SoundCloud back from
-disabled-providers". To do it yourself, from the repository folder:
+disabled-providers". To do it yourself, from the web app's folder (`archive/web-app` while the site is archived):
 
 ```bash
 sh disabled-providers/restore.sh soundcloud     # or: apple-music

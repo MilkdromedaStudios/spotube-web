@@ -3,7 +3,9 @@
 # Usage: sh disabled-providers/restore.sh soundcloud
 #        sh disabled-providers/restore.sh apple-music
 set -e
-cd "$(git rev-parse --show-toplevel)"
+# Run from the web app's folder (the one holding src/), wherever it sits in the repository.
+cd "$(dirname "$0")/.."
+prefix="$(git rev-parse --show-prefix)"
 
 name="$1"
 case "$name" in
@@ -19,7 +21,7 @@ dir="disabled-providers/$name"
 patch="$dir/restore.patch"
 [ -f "disabled-providers/$other/restore.patch" ] || patch="$dir/restore-after-$other.patch"
 
-git apply -3 "$patch"
+git apply -3 ${prefix:+--directory="${prefix%/}"} "$patch"
 (cd "$dir/files" && find . -type f | sed 's|^\./||') | while read -r f; do
   mkdir -p "$(dirname "$f")"
   git mv "$dir/files/$f" "$f"

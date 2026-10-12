@@ -1,0 +1,89 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>YouTube</title>
+    <link rel="stylesheet" href="panel.css" />
+  </head>
+  <body>
+    <header>
+      <h1>YouTube</h1>
+      <button id="settings-button" type="button" class="icon" aria-label="Settings" title="Settings">⚙</button>
+    </header>
+
+    <main id="main">
+      <section id="player" hidden aria-label="Now playing">
+        <div class="frame">
+          <iframe
+            id="video"
+            title="YouTube player"
+            allow="autoplay; encrypted-media; picture-in-picture; fullscreen"
+            allowfullscreen
+          ></iframe>
+        </div>
+        <div class="now">
+          <div class="now-text">
+            <p id="now-title"></p>
+            <p id="now-channel" class="muted"></p>
+          </div>
+          <button id="next-button" type="button">Next</button>
+        </div>
+        <a id="open-link" class="muted small" target="_blank" rel="noopener noreferrer">Not playing? Open it on YouTube Music ↗</a>
+      </section>
+
+      <form id="search-form" role="search">
+        <input id="search-input" type="search" placeholder="Search YouTube" aria-label="Search YouTube" autocomplete="off" />
+        <button type="submit">Search</button>
+      </form>
+      <label class="check"><input id="follow" type="checkbox" checked /> Search here when I search on Spotify</label>
+      <p id="status" role="status" class="muted"></p>
+      <ol id="results"></ol>
+    </main>
+
+    <section id="settings" hidden aria-label="Settings">
+      <h2>Settings</h2>
+      <p>
+        To search YouTube, this panel needs a free YouTube key from Google. You only do this once, and it doesn't cost
+        anything.
+      </p>
+      <ol class="steps">
+        <li>
+          Open
+          <a href="https://console.cloud.google.com/apis/library/youtube.googleapis.com" target="_blank" rel="noopener noreferrer"
+            >YouTube Data API v3 ↗</a
+          >, sign in with Google, create a project if it asks, and press <strong>Enable</strong>.
+        </li>
+        <li>
+          Open
+          <a href="https://console.cloud.google.com/apis/credentials" target="_blank" rel="noopener noreferrer">Credentials ↗</a>,
+          choose <strong>Create credentials → API key</strong>, and copy the key.
+        </li>
+        <li>Paste it here and press <strong>Save</strong>.</li>
+      </ol>
+      <form id="key-form">
+        <input
+          id="key-input"
+          type="password"
+          placeholder="Paste your YouTube key"
+          aria-label="YouTube key"
+          autocomplete="off"
+          spellcheck="false"
+        />
+        <button type="submit">Save</button>
+      </form>
+      <p id="key-status" role="status" class="muted small"></p>
+      <label class="check"><input id="music-only" type="checkbox" checked /> Show music only</label>
+      <div class="row">
+        <button id="close-settings" type="button">Done</button>
+        <button id="remove-key" type="button" class="link">Remove my key</button>
+      </div>
+      <p class="muted small">
+        Spotube is not made by or connected to Spotify or YouTube. It uses YouTube's own player, so YouTube's ads may play
+        in it.
+      </p>
+    </section>
+
+    <script src="panel.js"></script>
+  </body>
+</html>
