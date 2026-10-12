@@ -101,6 +101,14 @@ export const PROVIDER_LABELS: Record<ProviderId, string> = {
   apple: "Apple Music",
 };
 
+/** Services parked in disabled-providers/. Songs saved from them stay in the library but can't play. */
+const PARKED_LABELS: Record<string, string> = {};
+
+/** Display name for any saved song's service, including ones this site no longer plays. */
+export function providerLabel(id: string): string {
+  return PROVIDER_LABELS[id as ProviderId] ?? PARKED_LABELS[id] ?? "Another service";
+}
+
 export function isProviderId(v: unknown): v is ProviderId {
   return typeof v === "string" && (PROVIDER_IDS as readonly string[]).includes(v);
 }

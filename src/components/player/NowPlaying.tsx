@@ -14,7 +14,7 @@ import { Button, IconButton } from "@/components/ui";
 import { useLikedKeys } from "@/hooks/useLibrary";
 import { currentTrack, setNowPlayingOpen, usePlayer } from "@/lib/player/engine";
 import { useSettings } from "@/lib/settings";
-import { artistNames, PROVIDER_LABELS } from "@/lib/types";
+import { artistNames, providerLabel } from "@/lib/types";
 import { openAddToPlaylist } from "@/lib/uiStore";
 
 /** Full-screen now-playing view. The provider's official player is shown in place of the artwork. */
@@ -65,7 +65,7 @@ export function NowPlaying() {
             </button>
           ))}
         </div>
-        <span className="hidden text-xs text-muted sm:block">{track ? `Playing on ${PROVIDER_LABELS[track.provider]}` : ""}</span>
+        <span className="hidden text-xs text-muted sm:block">{track ? `Playing on ${providerLabel(track.provider)}` : ""}</span>
       </div>
       <div className="relative grid flex-1 grid-cols-1 gap-8 overflow-hidden px-4 pb-6 lg:grid-cols-[minmax(0,3fr)_minmax(0,2fr)] lg:px-10">
         <div className={`flex min-h-0 flex-col items-center justify-center gap-6 ${tab === "queue" ? "hidden lg:flex" : ""}`}>

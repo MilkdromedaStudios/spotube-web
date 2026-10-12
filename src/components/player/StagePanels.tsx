@@ -6,7 +6,7 @@ import { currentTrack, usePlayer } from "@/lib/player/engine";
 import { AD_NOTICE } from "./PlayerBar";
 import { QueueList } from "./QueuePanel";
 import { useSettings } from "@/lib/settings";
-import { PROVIDER_LABELS } from "@/lib/types";
+import { providerLabel } from "@/lib/types";
 import { SpotifyPreviewPrompt } from "@/components/SpotifySignIn";
 
 /** Right-hand "now playing" column on large screens, hosting the official provider player. */
@@ -18,7 +18,7 @@ export function StagePanel() {
   if (!provider) return null;
   return (
     <aside className="scrollbar-thin hidden w-[360px] shrink-0 flex-col gap-3 overflow-y-auto border-l border-line bg-surface p-3 lg:flex" aria-label="Now playing">
-      <p className="text-xs font-medium uppercase tracking-wide text-subtle">Playing on {PROVIDER_LABELS[provider]}</p>
+      <p className="text-xs font-medium uppercase tracking-wide text-subtle">Playing on {providerLabel(provider)}</p>
       <StageSlot
         priority={50}
         className={provider === "youtube" ? "aspect-video w-full shrink-0" : "w-full shrink-0"}

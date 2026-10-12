@@ -11,7 +11,7 @@ import { TrackList } from "@/components/TrackList";
 import { EmptyState, LoadingState } from "@/components/ui";
 import { useDbStatus } from "@/lib/db/db";
 import { listeningStats } from "@/lib/db/stats";
-import { PROVIDER_LABELS } from "@/lib/types";
+import { providerLabel } from "@/lib/types";
 
 const RANGES = [
   { days: 7, label: "7 days" },
@@ -60,7 +60,7 @@ export default function StatsPage() {
               ["Plays", stats.plays.toLocaleString()],
               ["Time listened", hours(stats.listenedMs)],
               ["Different songs", stats.uniqueTracks.toLocaleString()],
-              ["Top source", stats.byProvider[0] ? PROVIDER_LABELS[stats.byProvider[0].provider] : "—"],
+              ["Top source", stats.byProvider[0] ? providerLabel(stats.byProvider[0].provider) : "—"],
             ].map(([k, v]) => (
               <div key={k} className="rounded-2xl bg-surface-2 p-4">
                 <p className="text-sm text-muted">{k}</p>

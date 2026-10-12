@@ -3,7 +3,7 @@
 import { create } from "zustand";
 import { getDb } from "@/lib/db/db";
 import { write } from "@/lib/db/library";
-import type { ProviderId } from "@/lib/types";
+import { isProviderId, type ProviderId } from "@/lib/types";
 
 export const ACCENTS = {
   slate: { label: "Slate", color: "#94a3b8" },
@@ -108,6 +108,8 @@ export function mergeSettings(stored: Partial<Settings>): Settings {
       key === "enabledProviders" ? { ...DEFAULT_SETTINGS.enabledProviders, ...(v as object) } : v;
   }
   if (!(out.accent in ACCENTS)) out.accent = DEFAULT_SETTINGS.accent;
+  // A music service that has been taken out of the site can't stay the default.
+  if (!isProviderId(out.preferredProvider)) out.preferredProvider = DEFAULT_SETTINGS.preferredProvider;
   return out;
 }
 

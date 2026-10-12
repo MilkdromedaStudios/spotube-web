@@ -23,7 +23,7 @@ import type { PlayerStateRecord, RepeatMode } from "@/lib/db/schema";
 import { useSpotifyAuth } from "@/lib/providers/spotify";
 import { getSettings } from "@/lib/settings";
 import { toast } from "@/lib/toast";
-import { PROVIDER_LABELS, type ProviderId, type Track } from "@/lib/types";
+import { isProviderId, PROVIDER_LABELS, type ProviderId, type Track } from "@/lib/types";
 
 export type PlayerStatus = "idle" | "loading" | "playing" | "paused" | "buffering" | "error";
 
@@ -256,6 +256,14 @@ async function select(index: number, opts: { autoplay: boolean; startMs?: number
   if (opts.startMs === undefined && getSettings().resumeLongTracks && (track.durationMs ?? 0) > 10 * 60_000) {
     const r = await getResume(track.key).catch(() => undefined);
     if (r && r.positionMs > 30_000 && r.positionMs < (track.durationMs ?? 0) - 15_000) startMs = r.positionMs;
+  }
+
+  // Songs saved from a music service this site has since dropped stay in the library but can't play.
+  if (!isProviderId(track.provider)) {
+    current?.stop();
+    loaded = false;
+    set({ index, status: "error", error: "This song is from a music service this site doesn't play anymore." });
+    return;
   }
 
   if (!getSettings().enabledProviders[track.provider]) {

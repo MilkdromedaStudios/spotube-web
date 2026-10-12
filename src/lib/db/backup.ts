@@ -2,13 +2,15 @@ import { z } from "zod";
 import { getDb } from "./db";
 import { createPlaylist, upsertTracks, write } from "./library";
 import type { PlaylistRecord, TrackRecord } from "./schema";
-import { PROVIDER_IDS, type Track } from "@/lib/types";
+import type { ProviderId, Track } from "@/lib/types";
 
 export const BACKUP_FORMAT = "spotube-web-backup";
 export const PLAYLIST_FORMAT = "spotube-web-playlist";
 export const EXPORT_VERSION = 1;
 
-const provider = z.enum(PROVIDER_IDS);
+// Any service name is accepted, so backups keep songs from services parked in
+// disabled-providers/ (they stay in the library and play again if restored).
+const provider = z.string().min(1) as unknown as z.ZodType<ProviderId>;
 const ref = z.object({ id: z.string().optional(), name: z.string() });
 
 const trackSchema = z.object({
