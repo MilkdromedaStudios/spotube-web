@@ -26,3 +26,14 @@ jobs:
       - name: Build and typecheck
         run: npm run build
 
+  extension-check:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout source
+        uses: actions/checkout@v4
+      - name: Set up Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - name: Check the manifest and scripts
+        run: node .github/scripts/check-extension.mjs
